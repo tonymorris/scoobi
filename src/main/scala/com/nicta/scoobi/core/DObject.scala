@@ -17,9 +17,10 @@ package com.nicta.scoobi
 package core
 
 import impl.plan._
+import application.Persistable
 
 /* A wrapper around an object that is part of the graph of a distributed computation.*/
-trait DObject[A] {
+trait DObject[A] extends Persistable[DObject[A]] {
 
   implicit def m: Manifest[A]
 

@@ -359,8 +359,9 @@ trait LowImplicitsPersister {
 
 }
 
+trait Persistable[A]
 /** The container for persisting a DList. */
-case class DListPersister[A](dlist: DList[A], sink: DataSink[_, _, A]) {
+case class DListPersister[A](dlist: DList[A], sink: DataSink[_, _, A]) extends Persistable[A] {
   def compress = compressWith(new GzipCodec)
   def compressWith(codec: CompressionCodec, compressionType: CompressionType = CompressionType.BLOCK) = copy(sink = sink.outputCompression(codec))
 }
