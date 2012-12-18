@@ -11,6 +11,7 @@ trait Iterable1[+A] {
   def iterator: Iterator1[A] =
     head +: tail.iterator
 
+  // flatten, transpose, isEmpty, size, hasDefiniteSize, ++, map, flatMap, filter, remove, partition, groupBy, foreach, forall, exists, count, find, foldLeft, /:, reduceLeft, foldRight, :\, last, init, take, drop, slice, takeWhile, dropWhile, span, copyToArray, toArray, toList, toSeq, toStream, sortWith, mkString, toString, stringPrefix
 }
 
 object Iterable1 {
