@@ -78,15 +78,7 @@ trait Iterable1[+A] {
     }
     None
   }
-  /*
-  def collectFirst[B](pf: PartialFunction[A, B]): Option[B] = {
-      for (x <- self.toIterator) { // make sure to use an iterator or `seq`
-        if (pf isDefinedAt x)
-          return Some(pf(x))
-      }
-      None
-    }
-   */
+
   def foldLeft[B](b: B)(op: (B, A) => B): B =
     toIterable.foldLeft(b)(op)
 
