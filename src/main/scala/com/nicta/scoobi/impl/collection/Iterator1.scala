@@ -3,22 +3,22 @@ package impl
 package collection
 
 trait Iterator1[+A] extends TraversableOnce[A] {
-  val head: A
-  val tail: Iterator[A]
+  def first: A
+  private[collection] val rest: Iterator[A]
 
   import Iterator1._
 
   private var fnext: Boolean = false
 
   def hasNext: Boolean =
-    !fnext || tail.hasNext
+    !fnext || rest.hasNext
 
   def next: A =
     if(fnext)
-      tail.next
+      rest.next
     else {
       fnext = true
-      head
+      first
     }
 
   def seq: Iterator[A] =
@@ -64,14 +64,14 @@ trait Iterator1[+A] extends TraversableOnce[A] {
     toIterator slice (from, to)
 
   def map[B](f: A => B): Iterator1[B] =
-    f(head) +:: (tail map f)
+    f(first) +:: (rest map f)
 
   def ++[AA >: A](that: => Iterator1[AA]): Iterator1[AA] =
-    head +:: (tail ++ that.toIterator)
+    first +:: (rest ++ that.toIterator)
 
   def flatMap[B](f: A => Iterator1[B]): Iterator1[B] = {
-    val k = f(head)
-    k.head +:: (k.tail ++ (tail flatMap (f(_).toIterator)))
+    val k = f(first)
+    k.first +:: (k.rest ++ (rest flatMap (f(_).toIterator)))
   }
 
   def filter(p: A => Boolean): Iterator[A] =
@@ -90,63 +90,63 @@ trait Iterator1[+A] extends TraversableOnce[A] {
     toIterator takeWhile p
 
   def partition(p: A => Boolean): BreakIterator1[A] = {
-    val (xx, yy) = tail partition p
-    if(p(head))
-      LeftBreakIterator1(head +:: xx, yy)
+    val (xx, yy) = rest partition p
+    if(p(first))
+      LeftBreakIterator1(first +:: xx, yy)
     else
-      RightBreakIterator1(xx, head +:: yy)
+      RightBreakIterator1(xx, first +:: yy)
   }
 
   def span(p: A => Boolean): BreakIterator1[A] = {
-    if(p(head)) {
-      val (xx, yy) = tail span p
-      LeftBreakIterator1(head +:: xx, yy)
+    if(p(first)) {
+      val (xx, yy) = rest span p
+      LeftBreakIterator1(first +:: xx, yy)
     } else
-      RightBreakIterator1(Iterator.empty, head +:: tail)
+      RightBreakIterator1(Iterator.empty, first +:: rest)
   }
 
   def dropWhile(p: A => Boolean): Iterator[A] =
     toIterator dropWhile p
 
   def zip[B](that: Iterator1[B]): Iterator1[(A, B)] =
-    (head, that.head) +:: (tail zip that.tail)
+    (first, that.first) +:: (rest zip that.rest)
 
   def padTo[AA >: A](len: Int, elem: AA): Iterator1[AA] =
-    head +:: (tail padTo (len - 1, elem))
+    first +:: (rest padTo (len - 1, elem))
 
   def zipWithIndex: Iterator1[(A, Int)] =
-    (head, 0) +:: (tail.zipWithIndex map {
+    (first, 0) +:: (rest.zipWithIndex map {
       case (a, n) => (a, n + 1)
     })
 
   def zipAll[B, AA >: A, BB >: B](that: Iterator1[B], thisElem: AA, thatElem: BB): Iterator1[(AA, BB)] =
-    (head, that.head) +:: (tail zipAll (that.tail, thisElem, thatElem))
+    (first, that.first) +:: (rest zipAll (that.rest, thisElem, thatElem))
 
   def foreach[U](f: A => U) = {
-    f(head)
-    tail foreach f
+    f(first)
+    rest foreach f
   }
 
   def forall(p: A => Boolean): Boolean =
-    p(head) && (tail forall p)
+    p(first) && (rest forall p)
 
   def exists(p: A => Boolean): Boolean =
-    p(head) || (tail exists p)
+    p(first) || (rest exists p)
 
   def contains(elem: Any): Boolean =
-    head == elem || (tail contains elem)
+    first == elem || (rest contains elem)
 
   def find(p: A => Boolean): Option[A] =
-    if(p(head))
-      Some(head)
+    if(p(first))
+      Some(first)
     else
-      tail find p
+      rest find p
 
   def indexWhere(p: A => Boolean): Int =
-    if(p(head))
+    if(p(first))
       0
     else {
-      val i = tail indexWhere p
+      val i = rest indexWhere p
       if(i == -1)
         -1
       else
@@ -154,10 +154,10 @@ trait Iterator1[+A] extends TraversableOnce[A] {
     }
 
   def indexOf[AA >: A](elem: AA): Int =
-    if(head == elem)
+    if(first == elem)
       0
     else {
-      val i = tail indexOf elem
+      val i = rest indexOf elem
       if(i == -1)
         -1
       else
@@ -165,18 +165,18 @@ trait Iterator1[+A] extends TraversableOnce[A] {
     }
 
   def length: Int =
-    1 + tail.length
+    1 + rest.length
 
   def duplicate: (Iterator1[A], Iterator1[A]) = {
-    val (x, y) = tail.duplicate
-    (head +:: x, head +:: y)
+    val (x, y) = rest.duplicate
+    (first +:: x, first +:: y)
   }
 
   def sameElements(that: Iterator1[_]): Boolean =
-    (head == that.head) && (tail sameElements that.tail)
+    (first == that.first) && (rest sameElements that.rest)
 
   def toStream: Stream[A] =
-    head #:: tail.toStream
+    first #:: rest.toStream
 
   override def toString =
     "non-empty iterator (Iterator1)"
@@ -195,8 +195,8 @@ object Iterator1 {
   case class RichIterator[+A](it: Iterator[A]) {
     def +::[AA >: A](h: AA): Iterator1[AA] =
       new Iterator1[AA] {
-        val head = h
-        val tail = it
+        def first = h
+        val rest = it
       }
 
     def scan1Left[B](z: B)(op: (B, A) => B): Iterator1[B] =
