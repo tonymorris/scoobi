@@ -10,7 +10,7 @@ trait Iterable1[+A] {
   import Iterable1._
 
   def iterator: Iterator1[A] =
-    head +: tail.iterator
+    head +:: tail.iterator
 
   def toIterable: Iterable[A] =
     new Iterable[A] {
@@ -20,21 +20,21 @@ trait Iterable1[+A] {
 
   def flatten[I](implicit I1: A => Iterable1[I]): Iterable1[I] = {
     val r = I1(head)
-    r.head +: (r.tail ++ tail.flatten(I1(_).iterator))
+    r.head +:: (r.tail ++ tail.flatten(I1(_).iterator))
   }
 
   def size: Int =
     1 + tail.size
 
   def ++[AA >: A](that: => Iterable1[AA]): Iterable1[AA] =
-    head +: (tail ++ that.toIterable)
+    head +:: (tail ++ that.toIterable)
 
   def map[B](f: A => B): Iterable1[B] =
-    f(head) +: (tail map f)
+    f(head) +:: (tail map f)
 
   def flatMap[B](f: A => Iterable1[B]): Iterable1[B] = {
     val k = f(head)
-    k.head +: (k.tail ++ (tail flatMap (f(_).toIterable)))
+    k.head +:: (k.tail ++ (tail flatMap (f(_).toIterable)))
   }
 
   def filter(p: A => Boolean): Iterable[A] =
@@ -43,9 +43,9 @@ trait Iterable1[+A] {
   def partition(p: A => Boolean): BreakIterable1[A] = {
     val (xx, yy) = tail partition p
     if(p(head))
-      LeftBreakIterable1(head +: xx, yy)
+      LeftBreakIterable1(head +:: xx, yy)
     else
-      RightBreakIterable1(xx, head +: yy)
+      RightBreakIterable1(xx, head +:: yy)
   }
 
   def foreach[U](f: A => U) = {
@@ -98,9 +98,9 @@ trait Iterable1[+A] {
   def span(p: A => Boolean): BreakIterable1[A] = {
     if(p(head)) {
       val (xx, yy) = tail span p
-      LeftBreakIterable1(head +: xx, yy)
+      LeftBreakIterable1(head +:: xx, yy)
     } else
-      RightBreakIterable1(Iterable.empty, head +: tail)
+      RightBreakIterable1(Iterable.empty, head +:: tail)
   }
 
   def toList: List[A] =
@@ -115,7 +115,7 @@ trait Iterable1[+A] {
 
 object Iterable1 {
   case class RichIterable[+A](it: Iterable[A]) {
-    def +:[AA >: A](h: AA): Iterable1[AA] =
+    def +::[AA >: A](h: AA): Iterable1[AA] =
       new Iterable1[AA] {
         val head = h
         val tail = it
@@ -129,4 +129,10 @@ object Iterable1 {
   case class LeftBreakIterable1[+A](x: Iterable1[A], y: Iterable[A]) extends BreakIterable1[A]
   case class RightBreakIterable1[+A](x: Iterable[A], y: Iterable1[A]) extends BreakIterable1[A]
 
+}
+
+object U {
+  import Iterable1._
+  def g =
+    7 +:: List(1, 2, 3)
 }
