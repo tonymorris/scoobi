@@ -130,9 +130,3 @@ object Iterable1 {
   case class RightBreakIterable1[+A](x: Iterable[A], y: Iterable1[A]) extends BreakIterable1[A]
 
 }
-
-object U {
-  import Iterable1._
-  def g =
-    7 +:: List(1, 2, 3)
-}
