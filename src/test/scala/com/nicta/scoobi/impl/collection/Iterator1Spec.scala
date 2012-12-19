@@ -41,8 +41,6 @@ object Iterator1Data {
 class Iterator1Spec extends UnitSpecification with ScalaCheck {
   import Iterator1Data._
 
-  "blah-blah" >> prop { n: Int => List(n).reverse === List(n).reverse }
-
   "hasNext gives next" >> prop {
     i: Iterator1[Int] => {
       val q = i.hasNext
