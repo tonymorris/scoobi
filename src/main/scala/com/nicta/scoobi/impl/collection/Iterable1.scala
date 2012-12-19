@@ -134,6 +134,32 @@ trait Iterable1[+A] {
 
   def toStream: Stream[A] =
     toIterable.toStream
+
+  override def toString: String = {
+    val i = iterator
+    val b = new StringBuilder
+    b += '['
+
+    while(i.hasNext) {
+      val e = i.next
+      b append e
+      if(i.hasNext)
+        b += ','
+    }
+
+    b += ']'
+
+    b.toString
+  }
+
+  override def equals(a: Any): Boolean =
+    a.isInstanceOf[Iterable1[_]] && {
+      val aa = a.asInstanceOf[Iterable1[_]]
+      head == aa.head && tail == aa.tail
+    }
+
+  override def hashCode: Int =
+    head.hashCode + tail.hashCode
 }
 
 object Iterable1 {
