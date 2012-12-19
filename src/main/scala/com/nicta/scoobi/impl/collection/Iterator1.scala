@@ -20,10 +20,10 @@ package collection
 /**
  * A non-empty iterator contains at least one element. Consequences include:
  *
- * - `reduceLeft` will always produce a value.
- * - `first` will always produce a value.
- * - `next` will always produce a value on its first invocation.
- * - `hasNext` will always return true on its first invocation.
+ * $ - `reduceLeft` will always produce a value.
+ * $ - `first` will always produce a value.
+ * $ - `next` will always produce a value on its first invocation.
+ * $ - `hasNext` will always return true on its first invocation.
  *
  * Some operations on a non-empty iterable result in a non-empty iterable.
  *
