@@ -110,16 +110,16 @@ trait Iterable1[+A] {
   /**
    * Zip this iterable with the infinite iterable from 0 incrementing by 1, to produce an iterable of pairs.
    */
-  def zipWithIndex: Iterator1[(A, Int)] =
-    (first, 0) +:: (rest.zipWithIndex map {
+  def zipWithIndex: Iterable1[(A, Int)] =
+    (head, 0) +:: (tail.zipWithIndex map {
       case (a, n) => (a, n + 1)
     })
 
   /**
    * Creates an iterable formed from this iterable and another iterable by combining corresponding elements in pairs.
    */
-  def zipAll[B, AA >: A, BB >: B](that: Iterator1[B], thisElem: AA, thatElem: BB): Iterator1[(AA, BB)] =
-    (first, that.first) +:: (rest zipAll (that.rest, thisElem, thatElem))
+  def zipAll[B, AA >: A, BB >: B](that: Iterable1[B], thisElem: AA, thatElem: BB): Iterable1[(AA, BB)] =
+    (head, that.head) +:: (tail zipAll (that.tail, thisElem, thatElem))
 
   /**
    * Return an iterable with only the elements satisfying the predicate.
