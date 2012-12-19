@@ -25,7 +25,6 @@ package collection
  * - `next` will always produce a value on its first invocation.
  * - `hasNext` will always return true on its first invocation.
  * - `scanLeft1` will always produce a value.
- * - `scanRight1` will always produce a value.
  *
  * Some operations on a non-empty iterator result in a non-empty iterator.
  *
@@ -350,7 +349,7 @@ trait Iterator1[+A] extends TraversableOnce[A] {
 
 object Iterator1 {
   // CAUTION
-  private def unsafeIterator1[A](it: Iterator[A]): Iterator1[A] =
+  private[collection] def unsafeIterator1[A](it: Iterator[A]): Iterator1[A] =
     if(it.hasNext) {
       val h = it.next
       h +:: it
@@ -375,12 +374,6 @@ object Iterator1 {
      */
     def scan1Left[B](z: B)(op: (B, A) => B): Iterator1[B] =
       unsafeIterator1(it.scanLeft(z)(op))
-
-    /**
-     * Produces an iterator containing cumulative results of applying the operator going right to left. The head of the iterator is the last cumulative result.
-     */
-    def scan1Right[B](z: B)(op: (A, B) => B): Iterator1[B] =
-      unsafeIterator1(it.scanRight(z)(op))
 
   }
 

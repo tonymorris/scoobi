@@ -304,6 +304,22 @@ object Iterable1 {
         val head = h
         val tail = it
       }
+
+    /**
+     * Produces an iterator containing cumulative results of applying the operator going left to right.
+     */
+    def scan1Left[B](z: B)(op: (B, A) => B): Iterable1[B] = {
+      val h = z
+      var acc = z
+      val b = new scala.collection.mutable.ListBuffer[B]
+      it.foreach { x =>
+        acc = op(acc, x)
+        b += acc
+      }
+
+      h +:: b
+    }
+
   }
 
   implicit def IterableToIterable1[A](it: Iterable[A]): RichIterable[A] =
