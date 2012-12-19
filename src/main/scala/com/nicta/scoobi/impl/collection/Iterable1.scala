@@ -20,9 +20,9 @@ package collection
 /**
  * A non-empty iterable contains at least one element. Consequences include:
  *
- * - 'reduceLeft' will always produce a value.
- * - 'head' will always produce a value.
- * - 'tail' will always produce a value.
+ * - `reduceLeft` will always produce a value.
+ * - `head` will always produce a value.
+ * - `tail` will always produce a value.
  *
  * Some operations on a non-empty iterable result in a non-empty iterable.
  */
@@ -149,13 +149,13 @@ trait Iterable1[+A] {
   }
 
   /**
-   * Reduce the iterable using the given seed and loop function. Synonym for '/:'.
+   * Reduce the iterable using the given seed and loop function. Synonym for `/:`.
    */
   def foldLeft[B](b: B)(op: (B, A) => B): B =
     toIterable.foldLeft(b)(op)
 
   /**
-   * Reduce the iterable using the given seed and loop function. Synonym for 'foldLeft'.
+   * Reduce the iterable using the given seed and loop function. Synonym for `foldLeft`.
    */
   def /:[B](b: B)(op: (B, A) => B): B =
     foldLeft(b)(op)
@@ -254,7 +254,7 @@ trait Iterable1[+A] {
 
 object Iterable1 {
   /**
-   * Add methods to 'scala.collection.Iterable[A]'.
+   * Add methods to `scala.collection.Iterable[A]`.
    */
   case class RichIterable[+A](it: Iterable[A]) {
     def +::[AA >: A](h: AA): Iterable1[AA] =
@@ -268,7 +268,7 @@ object Iterable1 {
     RichIterable(it)
 
   /**
-   * A return type used in 'Iterable1' functions that split an iterable. Splitting a non-empty iterable will result in a non-empty iterable and a regular iterable.
+   * A return type used in `Iterable1` functions that split an iterable. Splitting a non-empty iterable will result in a non-empty iterable and a regular iterable.
    *
    * Isomorphic to '[A](Boolean, Iterable1[A], Iterable[A])'.
    */

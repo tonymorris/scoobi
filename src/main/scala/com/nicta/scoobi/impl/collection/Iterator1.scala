@@ -17,7 +17,22 @@ package com.nicta.scoobi
 package impl
 package collection
 
+/**
+ * A non-empty iterator contains at least one element. Consequences include:
+ *
+ * - `reduceLeft` will always produce a value.
+ * - `first` will always produce a value.
+ * - `next` will always produce a value on its first invocation.
+ * - `hasNext` will always return true on its first invocation.
+ *
+ * Some operations on a non-empty iterable result in a non-empty iterable.
+ *
+ * '''NOTE: Most Iterator functions perform SIDE-EFFECTS and so EQUATIONAL REASONING DOES NOT APPLY.'''
+ */
 trait Iterator1[+A] extends TraversableOnce[A] {
+  /**
+   * The constant first element of this iterator.
+   */
   def first: A
   private[collection] val rest: Iterator[A]
 
@@ -25,9 +40,15 @@ trait Iterator1[+A] extends TraversableOnce[A] {
 
   private var fnext: Boolean = false
 
+  /**
+   * True if this iterator can produce a value from `next`.
+   */
   def hasNext: Boolean =
     !fnext || rest.hasNext
 
+  /**
+   * Produces a value if possible, or throws an exception if not possible. The method `hasNext` determines if a value can be produced.
+   */
   def next: A =
     if(fnext)
       rest.next
@@ -36,12 +57,21 @@ trait Iterator1[+A] extends TraversableOnce[A] {
       first
     }
 
+  /**
+   * Return a regular iterator, losing the non-empty invariant in the type.
+   */
   def seq: Iterator[A] =
     toIterator
 
+  /**
+   * Returns a stream of this iterator.
+   */
   def toTraversable: Traversable[A] =
     toStream
 
+  /**
+   * Copies this iterator to an array at the given interval.
+   */
   def copyToArray[AA >: A](xs: Array[AA], start: Int, n: Int): Unit = {
     var i = start
     val end = math.min(start + n, xs.length)
@@ -51,12 +81,21 @@ trait Iterator1[+A] extends TraversableOnce[A] {
     }
   }
 
+  /**
+   * A non-empty iterator always has a definite size.
+   */
   def hasDefiniteSize: Boolean =
     true
 
+  /**
+   * A non-empty iterator is never traversable again.
+   */
   def isTraversableAgain: Boolean =
     false
 
+  /**
+   * Return a regular iterator, losing the non-empty invariant in the type.
+   */
   def toIterator: Iterator[A] =
     new Iterator[A] {
       def hasNext =
@@ -66,9 +105,15 @@ trait Iterator1[+A] extends TraversableOnce[A] {
         Iterator1.this.next
     }
 
+  /**
+   * The negation of `hasNext`.
+   */
   def isEmpty =
     !hasNext
 
+  /**
+   * Take at most the given number of elements from the front of the iterable.
+   */
   def take(n: Int): Iterator[A] =
     toIterator take n
 
