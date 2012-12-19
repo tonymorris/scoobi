@@ -25,6 +25,19 @@ package collection
  * - `tail` will always produce a value.
  *
  * Some operations on a non-empty iterable result in a non-empty iterable.
+ *
+ * Construction of an `Iterable1` is typically performed with the `+::` method, defined on `Iterable1.RichIterator`.
+ *
+ * For example:
+ *
+ * {{{
+ * import Iterable1._
+ *
+ * // A regular iterator.
+ * val x: Iterable[Int] = ...
+ * // Constructs a non-empty iterable with 74 at the head.
+ * val y: Iterable1[Int] = 74 +:: x
+ * }}}
  */
 trait Iterable1[+A] {
   val head: A
@@ -257,6 +270,9 @@ object Iterable1 {
    * Add methods to `scala.collection.Iterable[A]`.
    */
   case class RichIterable[+A](it: Iterable[A]) {
+    /**
+     * Prepends an element to a regular iterable to produce a non-empty iterable.
+     */
     def +::[AA >: A](h: AA): Iterable1[AA] =
       new Iterable1[AA] {
         val head = h

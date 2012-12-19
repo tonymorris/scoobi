@@ -24,8 +24,23 @@ package collection
  * - `first` will always produce a value.
  * - `next` will always produce a value on its first invocation.
  * - `hasNext` will always return true on its first invocation.
+ * - `scanLeft1` will always produce a value.
+ * - `scanRight1` will always produce a value.
  *
- * Some operations on a non-empty iterable result in a non-empty iterable.
+ * Some operations on a non-empty iterator result in a non-empty iterator.
+ *
+ * Construction of an `Iterator1` is typically performed with the `+::` method, defined on `Iterator1.RichIterator`.
+ *
+ * For example:
+ *
+ * {{{
+ * import Iterator1._
+ *
+ * // A regular iterator.
+ * val x: Iterator[Int] = ...
+ * // Constructs a non-empty iterator with 74 at the first.
+ * val y: Iterator1[Int] = 77 +:: x
+ * }}}
  *
  * '''NOTE: Most Iterator functions perform SIDE-EFFECTS and so EQUATIONAL REASONING DOES NOT APPLY.'''
  */
@@ -149,21 +164,39 @@ trait Iterator1[+A] extends TraversableOnce[A] {
     k.first +:: (k.rest ++ (rest flatMap (f(_).toIterator)))
   }
 
+  /**
+   * Return an iterator with only the elements satisfying the predicate.
+   */
   def filter(p: A => Boolean): Iterator[A] =
     toIterator filter p
 
+  /**
+   * Return an iterator with only the elements satisfying the predicate.
+   */
   def withFilter(p: A => Boolean): Iterator[A] =
     toIterator withFilter p
 
+  /**
+   * Return an iterator with only the elements not satisfying the predicate.
+   */
   def filterNot(p: A => Boolean): Iterator[A] =
     toIterator filterNot p
 
+  /**
+   * Return the first element in the iterator satisfying the given predicate, mapping the given function.
+   */
   def collect[B](pf: PartialFunction[A, B]): Iterator[B] =
     toIterator collect pf
 
+  /**
+   * Take elements from the front of the iterator satisfying the given predicate.
+   */
   def takeWhile(p: A => Boolean): Iterator[A] =
     toIterator takeWhile p
 
+  /**
+   * Partition the iterator into those satisfying a predicate and those that do not.
+   */
   def partition(p: A => Boolean): BreakIterator1[A] = {
     val (xx, yy) = rest partition p
     if(p(first))
@@ -172,6 +205,9 @@ trait Iterator1[+A] extends TraversableOnce[A] {
       RightBreakIterator1(xx, first +:: yy)
   }
 
+  /**
+   * Split the iterator, taking from the front while the given predicate satisfies.
+   */
   def span(p: A => Boolean): BreakIterator1[A] = {
     if(p(first)) {
       val (xx, yy) = rest span p
@@ -180,43 +216,76 @@ trait Iterator1[+A] extends TraversableOnce[A] {
       RightBreakIterator1(Iterator.empty, first +:: rest)
   }
 
+  /**
+   * Drop elements from the front of the iterator satisfying the given predicate.
+   */
   def dropWhile(p: A => Boolean): Iterator[A] =
     toIterator dropWhile p
 
+  /**
+   * Zip this iterator with the given iterator to produce an iterator of pairs.
+   */
   def zip[B](that: Iterator1[B]): Iterator1[(A, B)] =
     (first, that.first) +:: (rest zip that.rest)
 
+  /**
+   * Appends an element value to the iterator until a given target length is reached.
+   */
   def padTo[AA >: A](len: Int, elem: AA): Iterator1[AA] =
     first +:: (rest padTo (len - 1, elem))
 
+  /**
+   * Zip this iterator with the infinite iterator from 0 incrementing by 1, to produce an iterator of pairs.
+   */
   def zipWithIndex: Iterator1[(A, Int)] =
     (first, 0) +:: (rest.zipWithIndex map {
       case (a, n) => (a, n + 1)
     })
 
+  /**
+   * Creates an iterator formed from this iterator and another iterator by combining corresponding elements in pairs.
+   */
   def zipAll[B, AA >: A, BB >: B](that: Iterator1[B], thisElem: AA, thatElem: BB): Iterator1[(AA, BB)] =
     (first, that.first) +:: (rest zipAll (that.rest, thisElem, thatElem))
 
+  /**
+   * Execute an effect for each element of the iterator.
+   */
   def foreach[U](f: A => U) = {
     f(first)
     rest foreach f
   }
 
+  /**
+   * True if all elements of the iterator satisfy the given predicate.
+   */
   def forall(p: A => Boolean): Boolean =
     p(first) && (rest forall p)
 
+  /**
+   * True if any elements of the iterator satisfy the given predicate.
+   */
   def exists(p: A => Boolean): Boolean =
     p(first) || (rest exists p)
 
+  /**
+   * True if any elements of the iterator are equal to the given value.
+   */
   def contains(elem: Any): Boolean =
     first == elem || (rest contains elem)
 
+  /**
+   * Return the first element in the iterator satisfying the given predicate.
+   */
   def find(p: A => Boolean): Option[A] =
     if(p(first))
       Some(first)
     else
       rest find p
 
+  /**
+   * Return the index (starting at 0) of the first element in the iterator satisfying the given predicate or -1 if no such element exists.
+   */
   def indexWhere(p: A => Boolean): Int =
     if(p(first))
       0
@@ -228,6 +297,9 @@ trait Iterator1[+A] extends TraversableOnce[A] {
         i + 1
     }
 
+  /**
+   * Return the index (starting at 0) of the first element in the iterator equal to the given value or -1 if no such element exists.
+   */
   def indexOf[AA >: A](elem: AA): Int =
     if(first == elem)
       0
@@ -239,17 +311,29 @@ trait Iterator1[+A] extends TraversableOnce[A] {
         i + 1
     }
 
+  /**
+   * Return the number of elements in the iterator.
+   */
   def length: Int =
     1 + rest.length
 
+  /**
+   * Creates two new iterators that both iterate over the same elements as this iterator (in the same order).  The duplicate iterators are considered equal if they are positioned at the same element.
+   */
   def duplicate: (Iterator1[A], Iterator1[A]) = {
     val (x, y) = rest.duplicate
     (first +:: x, first +:: y)
   }
 
+  /**
+   * True if this iterator produces equal elements to the given iterator in the same order.
+   */
   def sameElements(that: Iterator1[_]): Boolean =
     (first == that.first) && (rest sameElements that.rest)
 
+  /**
+   * Convert this iterator to a stream.
+   */
   def toStream: Stream[A] =
     first #:: rest.toStream
 
@@ -267,16 +351,28 @@ object Iterator1 {
     } else
       sys.error("Invariant broken. Iterator1#unsafeIterator1 was invoked on an empty Iterator.")
 
+  /**
+   * Add methods to `scala.collection.Iterable[A]`.
+   */
   case class RichIterator[+A](it: Iterator[A]) {
+    /**
+     * Prepends an element to a regular iterator to produce a non-empty iterator.
+     */
     def +::[AA >: A](h: AA): Iterator1[AA] =
       new Iterator1[AA] {
         def first = h
         val rest = it
       }
 
+    /**
+     * Produces an iterator containing cumulative results of applying the operator going left to right.
+     */
     def scan1Left[B](z: B)(op: (B, A) => B): Iterator1[B] =
       unsafeIterator1(it.scanLeft(z)(op))
 
+    /**
+     * Produces an iterator containing cumulative results of applying the operator going right to left. The head of the iterator is the last cumulative result.
+     */
     def scan1Right[B](z: B)(op: (A, B) => B): Iterator1[B] =
       unsafeIterator1(it.scanRight(z)(op))
 
@@ -285,22 +381,50 @@ object Iterator1 {
   implicit def IteratorToIterator1[A](it: Iterator[A]): RichIterator[A] =
     RichIterator(it)
 
+  /**
+   * A return type used in `Iterator` functions that split an iterator. Splitting a non-empty iterator will result in a non-empty iterator and a regular iterator.
+   *
+   * Isomorphic to '[A](Boolean, Iterator1[A], Iterator[A])'.
+   */
   sealed trait BreakIterator1[+A]
+
+  /**
+   * The iterator split in two with non-empty first.
+   */
   case class LeftBreakIterator1[+A](x: Iterator1[A], y: Iterator[A]) extends BreakIterator1[A]
+
+  /**
+   * The iterator split in two with non-empty second.
+   */
   case class RightBreakIterator1[+A](x: Iterator[A], y: Iterator1[A]) extends BreakIterator1[A]
 
+  /**
+   * Construct an iterator with a single value.
+   */
   def single[A](elem: A): Iterator1[A] =
     elem +:: Iterator.empty
 
+  /**
+   * Construct an iterator with the given first and rest of values.
+   */
   def apply[A](elem: A, elems: A*): Iterator1[A] =
     elem +:: Iterator(elems: _*)
 
+  /**
+   * Produce an infinite iterator, starting at the given seed and applying the given transformation continually.
+   */
   def iterate[A](start: A)(f: A => A): Iterator1[A] =
     start +:: Iterator.iterate(f(start))(f)
 
+  /**
+   * Produce an infinite iterator starting at the given integer and incrementing by 1 continually.
+   */
   def from(start: Int): Iterator1[Int] =
     start +:: Iterator.from(start + 1)
 
+  /**
+   * Produce an infinite iterator starting at the given integer and incrementing by the given step continually.
+   */
   def from(start: Int, step: Int): Iterator1[Int] =
     start +:: Iterator.from(start + step)
 
