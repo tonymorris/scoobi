@@ -42,15 +42,8 @@ class Iterator1Spec extends UnitSpecification with ScalaCheck {
   import Iterator1Data._
 
   "hasNext gives next" >> prop {
-    i: Iterator1[Int] => {
-      val q = i.hasNext
-      try {
-        i.next
-        q
-      } catch {
-        case e: NoSuchElementException => !q
-      }
-    }
+    i: Iterator1[Int] =>
+      i.next must throwA[NoSuchElementException].iff(!i.hasNext)
   }
 
   "seq has same hasNext" >> prop {
@@ -70,15 +63,8 @@ class Iterator1Spec extends UnitSpecification with ScalaCheck {
   }
 
   "isEmpty gives no next" >> prop {
-    i: Iterator1[Int] => {
-      val q = i.isEmpty
-      try {
-        i.next
-        !q
-      } catch {
-        case e: NoSuchElementException => q
-      }
-    }
+    i: Iterator1[Int] =>
+      i.next must throwA[NoSuchElementException].iff(i.isEmpty)
   }
 
   "take gives maximum size" >> prop {
