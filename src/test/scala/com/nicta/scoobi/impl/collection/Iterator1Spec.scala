@@ -17,9 +17,10 @@ package com.nicta.scoobi
 package impl
 package collection
 
-import org.scalacheck.Prop._
+import org.scalacheck.Arbitrary
 import org.scalacheck.Arbitrary._
-import org.scalacheck.{Arbitrary, Properties}
+import org.specs2.ScalaCheck
+import testing.mutable.UnitSpecification
 
 object Iterator1Data {
   import Iterator1._
@@ -37,11 +38,13 @@ object Iterator1Data {
 
 }
 
-object Iterator1Spec extends Properties("Iterator1") {
+class Iterator1Spec extends UnitSpecification with ScalaCheck {
   import Iterator1Data._
 
-  property("hasNext gives next") =
-    forAll((i: Iterator1[Int]) => {
+  "blah-blah" >> prop { n: Int => List(n).reverse === List(n).reverse }
+
+  "hasNext gives next" >> prop {
+    i: Iterator1[Int] => {
       val q = i.hasNext
       try {
         i.next
@@ -49,6 +52,40 @@ object Iterator1Spec extends Properties("Iterator1") {
       } catch {
         case e: NoSuchElementException => !q
       }
-    })
+    }
+  }
+
+  "seq has same hasNext" >> prop {
+    i: Iterator1[Int] =>
+      i.hasNext == i.seq.hasNext
+  }
+
+
+  "toTraversable produces same head" >> prop {
+    i: Iterator1[Int] =>
+      i.toTraversable.head == i.first
+  }
+
+  "toIterator has same hasNext" >> prop {
+    i: Iterator1[Int] =>
+      i.hasNext == i.toIterator.hasNext
+  }
+
+  "isEmpty gives no next" >> prop {
+    i: Iterator1[Int] => {
+      val q = i.isEmpty
+      try {
+        i.next
+        !q
+      } catch {
+        case e: NoSuchElementException => q
+      }
+    }
+  }
+
+  "take gives maximum size" >> prop {
+    (i: Iterator1[String], n: Int) =>
+      (i take n).size <= math.max(0, n)
+  }
 
 }
