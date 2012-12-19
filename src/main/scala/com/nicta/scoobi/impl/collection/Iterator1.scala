@@ -20,10 +20,10 @@ package collection
 /**
  * A non-empty iterator contains at least one element. Consequences include:
  *
- * * `reduceLeft` will always produce a value.
- * * `first` will always produce a value.
- * * `next` will always produce a value on its first invocation.
- * * `hasNext` will always return true on its first invocation.
+ * - `reduceLeft` will always produce a value.
+ * - `first` will always produce a value.
+ * - `next` will always produce a value on its first invocation.
+ * - `hasNext` will always return true on its first invocation.
  *
  * Some operations on a non-empty iterable result in a non-empty iterable.
  *
@@ -112,23 +112,38 @@ trait Iterator1[+A] extends TraversableOnce[A] {
     !hasNext
 
   /**
-   * Take at most the given number of elements from the front of the iterable.
+   * Take at most the given number of elements from the front of the iterator.
    */
   def take(n: Int): Iterator[A] =
     toIterator take n
 
+  /**
+   * Drop at most the given number of elements from the front of the iterator.
+   */
   def drop(n: Int): Iterator[A] =
     toIterator drop n
 
+  /**
+   * Returns an interval of elements in the iterator.
+   */
   def slice(from: Int, to: Int): Iterator[A] =
     toIterator slice (from, to)
 
+  /**
+   * Map a function on all elements of the iterator.
+   */
   def map[B](f: A => B): Iterator1[B] =
     f(first) +:: (rest map f)
 
+  /**
+   * Append the given iterator to this iterator.
+   */
   def ++[AA >: A](that: => Iterator1[AA]): Iterator1[AA] =
     first +:: (rest ++ that.toIterator)
 
+  /**
+   * Sequence an iterator function on all elements of the iterator.
+   */
   def flatMap[B](f: A => Iterator1[B]): Iterator1[B] = {
     val k = f(first)
     k.first +:: (k.rest ++ (rest flatMap (f(_).toIterator)))
