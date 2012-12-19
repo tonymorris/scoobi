@@ -17,6 +17,15 @@ package com.nicta.scoobi
 package impl
 package collection
 
+/**
+ * A non-empty iterable contains at least one element. Consequences include:
+ *
+ * - 'reduceLeft' will always produce a value.
+ * - 'head' will always produce a value.
+ * - 'tail' will always produce a value.
+ *
+ * Some operations on a non-empty iterable result in a non-empty iterable.
+ */
 trait Iterable1[+A] {
   val head: A
   val tail: Iterable[A]
@@ -24,29 +33,50 @@ trait Iterable1[+A] {
   import Iterator1._
   import Iterable1._
 
+  /**
+   * Return a non-empty iterator.
+   */
   def iterator: Iterator1[A] =
     head +:: tail.iterator
 
+  /**
+   * Return a regular iterable, losing the non-empty invariant in the type.
+   */
   def toIterable: Iterable[A] =
     new Iterable[A] {
       def iterator =
         Iterable1.this.iterator.toIterator
     }
 
+  /**
+   * Flatten an iterable of iterable.
+   */
   def flatten[I](implicit I1: A => Iterable1[I]): Iterable1[I] = {
     val r = I1(head)
     r.head +:: (r.tail ++ tail.flatten(I1(_).iterator))
   }
 
+  /**
+   * The number of element in the iterable.
+   */
   def size: Int =
     1 + tail.size
 
+  /**
+   * Append the given iterable to this iterable.
+   */
   def ++[AA >: A](that: => Iterable1[AA]): Iterable1[AA] =
     head +:: (tail ++ that.toIterable)
 
+  /**
+   * Map a function on all elements of the iterable.
+   */
   def map[B](f: A => B): Iterable1[B] =
     f(head) +:: (tail map f)
 
+  /**
+   * Sequence an iterable function on all elements of the iterable.
+   */
   def flatMap[B](f: A => Iterable1[B]): Iterable1[B] = {
     val k = f(head)
     k.head +:: (k.tail ++ (tail flatMap (f(_).toIterable)))
