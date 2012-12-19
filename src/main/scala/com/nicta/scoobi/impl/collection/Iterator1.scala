@@ -165,6 +165,12 @@ trait Iterator1[+A] extends TraversableOnce[A] {
   }
 
   /**
+   * Runs the iterator sequence effect (`flatMap`) of functions on this iterator.
+   */
+  def <*>:[B](f: Iterator1[A => B]): Iterator1[B] =
+    f flatMap (map(_))
+
+  /**
    * Return an iterator with only the elements satisfying the predicate.
    */
   def filter(p: A => Boolean): Iterator[A] =

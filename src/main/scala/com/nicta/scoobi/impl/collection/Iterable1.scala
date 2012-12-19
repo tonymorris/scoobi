@@ -96,6 +96,18 @@ trait Iterable1[+A] {
   }
 
   /**
+   * Runs the iterable sequence effect (`flatMap`) of functions on this iterable.
+   */
+  def <*>:[B](f: Iterable1[A => B]): Iterable1[B] =
+    f flatMap (map(_))
+
+  /**
+   * Zip this iterable with the given iterable to produce an iterable of pairs.
+   */
+  def zip[B](b: Iterable1[B]): Iterable1[(A, B)] =
+    (head, b.head) +:: (tail zip b.tail)
+
+  /**
    * Return an iterable with only the elements satisfying the predicate.
    */
   def filter(p: A => Boolean): Iterable[A] =
@@ -299,5 +311,36 @@ object Iterable1 {
    * The iterable split in two with non-empty second.
    */
   case class RightBreakIterable1[+A](x: Iterable[A], y: Iterable1[A]) extends BreakIterable1[A]
+  /**
+   * Construct an iterable with a single value.
+   */
+  def single[A](elem: A): Iterable1[A] =
+    elem +:: Iterable.empty
 
+  /**
+   * Construct an iterable with the given first and rest of values.
+   */
+  def apply[A](elem: A, elems: A*): Iterable1[A] =
+    elem +:: Iterable(elems: _*)
+
+  /**
+   * Produce an infinite iterable, starting at the given seed and applying the given transformation continually.
+   */
+  def iterate[A](start: A)(f: A => A): Iterable1[A] =
+    start +:: (new Iterable[A] {
+      def iterator =
+        Iterator.iterate(start)(f)
+    })
+
+  /**
+   * Produce an infinite iterable starting at the given integer and incrementing by 1 continually.
+   */
+  def from(start: Int): Iterable1[Int] =
+    iterate(start)(_ + 1)
+
+  /**
+   * Produce an infinite iterable starting at the given integer and incrementing by the given step continually.
+   */
+  def from(start: Int, step: Int): Iterable1[Int] =
+    iterate(start)(_ + step)
 }
