@@ -38,7 +38,14 @@ object Iterator1Data {
 
 }
 
+// It may appear that some of these tests are incomplete and/or without coverage.
+// This is true, but it is an inevitable consequence of side-effecting code.
+// Running some Iterator functions stomps the previous state, so that it cannot be
+// compared against some other computation.
+//
+// Do not be tempted to apply equational reasoning here.
 class Iterator1Spec extends UnitSpecification with ScalaCheck {
+  import Iterator1._
   import Iterator1Data._
 
   "hasNext gives next" >> prop {
@@ -71,5 +78,89 @@ class Iterator1Spec extends UnitSpecification with ScalaCheck {
     (i: Iterator1[String], n: Int) =>
       (i take n).size <= math.max(0, n)
   }
+
+  "first maps" >> prop {
+    (i: Iterator1[String], f: String => Int) =>
+      (i map f).first == f(i.first)
+  }
+
+  "forall meets first" >> prop {
+    (i: Iterator1[String], f: String => Boolean) =>
+      !(i forall f) || f(i.first)
+  }
+
+  "filter gives elements forall" >> prop {
+    (i: Iterator1[String], f: String => Boolean) =>
+      i filter f forall f
+  }
+
+  "withFilter gives elements forall" >> prop {
+    (i: Iterator1[String], f: String => Boolean) =>
+      i withFilter f forall f
+  }
+
+  "filterNot gives elements not forall" >> prop {
+    (i: Iterator1[String], f: String => Boolean) =>
+      i filterNot f forall (!f(_))
+  }
+
+  "takeWhile gives elements forall" >> prop {
+    (i: Iterator1[String], f: String => Boolean) =>
+      i takeWhile f forall f
+  }
+
+  "partition gives elements forall and not forall" >> prop {
+    (i: Iterator1[String], f: String => Boolean) =>
+      i partition f match {
+        case LeftBreakIterator1(x, y) => f(x.first) && (x.rest forall f) && (y forall (!f(_)))
+        case RightBreakIterator1(x, y) => (x forall f) && !f(y.first) && (y.rest forall (!f(_)))
+      }
+  }
+
+  "span gives elements forall and first not forall" >> prop {
+    (i: Iterator1[String], f: String => Boolean) =>
+      i span f match {
+        case LeftBreakIterator1(x, y) => f(x.first) && (x.rest forall f) && (!y.hasNext || f(y.next))
+        case RightBreakIterator1(x, y) => (!x.hasNext || f(x.next)) && !f(y.first) && (y.rest forall (!f(_)))
+      }
+  }
+
+  "dropWhile gives not next" >> prop {
+    (i: Iterator1[String], f: String => Boolean) => {
+      val j = i dropWhile f
+      !(j.hasNext && f(j.next))
+    }
+  }
+
+  "exists meets first" >> prop {
+    (i: Iterator1[String], f: String => Boolean) =>
+      (i exists f) || !f(i.first)
+  }
+
+  "contains meets first" >> prop {
+    (i: Iterator1[String], s: String) =>
+      (i contains s) || i.first != s
+  }
+
+  "find meets first" >> prop {
+    (i: Iterator1[String], f: String => Boolean) =>
+      (i find f exists f) || !f(i.first)
+  }
+
+  "indexWhere meets first" >> prop {
+    (i: Iterator1[String], f: String => Boolean) =>
+      (i.indexWhere(f) != -1) || !f(i.first)
+  }
+
+  "indexOf meets first" >> prop {
+    (i: Iterator1[String], s: String) =>
+      (i.indexOf(s) != -1) || i.first != s
+  }
+
+  "length >= 1" >> prop {
+    (i: Iterator1[String]) =>
+      i.length >= 1
+  }
+
 
 }
