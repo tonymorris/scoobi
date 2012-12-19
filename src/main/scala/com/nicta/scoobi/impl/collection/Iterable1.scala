@@ -82,9 +82,15 @@ trait Iterable1[+A] {
     k.head +:: (k.tail ++ (tail flatMap (f(_).toIterable)))
   }
 
+  /**
+   * Return an iterable with only the elements satisfying the predicate.
+   */
   def filter(p: A => Boolean): Iterable[A] =
     toIterable filter p
 
+  /**
+   * Partition the iterable into those satisfying a predicate and those that do not.
+   */
   def partition(p: A => Boolean): BreakIterable1[A] = {
     val (xx, yy) = tail partition p
     if(p(head))
@@ -93,29 +99,47 @@ trait Iterable1[+A] {
       RightBreakIterable1(xx, head +:: yy)
   }
 
+  /**
+   * Execute the given effect on each element of the iterable.
+   */
   def foreach[U](f: A => U) = {
     f(head)
     tail foreach f
   }
 
+  /**
+   * True if all elements of the iterable satisfy the given predicate.
+   */
   def forall(p: A => Boolean): Boolean =
     p(head) && (tail forall p)
 
+  /**
+   * True if any elements of the iterable satisfy the given predicate.
+   */
   def exists(p: A => Boolean): Boolean =
     p(head) || (tail exists p)
 
+  /**
+   * Return the number of elements satisfying the given predicate.
+   */
   def count(p: A => Boolean): Int = {
     var c = 0
     foreach(a => if(p(a)) c += 1)
     c
   }
 
+  /**
+   * Return the first element in the iterable satisfying the given predicate.
+   */
   def find(p: A => Boolean): Option[A] =
     if(p(head))
       Some(head)
     else
       tail find p
 
+  /**
+   * Return the first element in the iterable satisfying the given predicate, mapping the given function.
+   */
   def collectFirst[B](pf: PartialFunction[A, B]): Option[B] = {
     for (x <- iterator) {
       if (pf isDefinedAt x)
@@ -124,30 +148,57 @@ trait Iterable1[+A] {
     None
   }
 
+  /**
+   * Reduce the iterable using the given seed and loop function. Synonym for '/:'.
+   */
   def foldLeft[B](b: B)(op: (B, A) => B): B =
     toIterable.foldLeft(b)(op)
 
+  /**
+   * Reduce the iterable using the given seed and loop function. Synonym for 'foldLeft'.
+   */
   def /:[B](b: B)(op: (B, A) => B): B =
     foldLeft(b)(op)
 
+  /**
+   * Reduce the iterable seeded with the head and the loop function on the tail.
+   */
   def reduceLeft[AA >: A](op: (AA, A) => AA): AA =
     tail.foldLeft[AA](head)(op)
 
+  /**
+   * Take at most the given number of elements from the front of the iterable.
+   */
   def take(n: Int): Iterable[A] =
     toIterable take n
 
+  /**
+   * Drop at most the given number of elements from the front of the iterable.
+   */
   def drop(n: Int): Iterable[A] =
     toIterable drop n
 
+  /**
+   * Returns an interval of elements in the iterable.
+   */
   def slice(from: Int, to: Int): Iterable[A] =
     toIterable slice (from, to)
 
+  /**
+   * Take elements from the front of the iterable satisfying the given predicate.
+   */
   def takeWhile(p: A => Boolean): Iterable[A] =
     toIterable takeWhile p
 
+  /**
+   * Drop elements from the front of the iterable satisfying the given predicate.
+   */
   def dropWhile(p: A => Boolean): Iterable[A] =
     toIterable dropWhile p
 
+  /**
+   * Split the iterable, taking from the front while the given predicate satisfies.
+   */
   def span(p: A => Boolean): BreakIterable1[A] = {
     if(p(head)) {
       val (xx, yy) = tail span p
@@ -156,12 +207,21 @@ trait Iterable1[+A] {
       RightBreakIterable1(Iterable.empty, head +:: tail)
   }
 
+  /**
+   * Convert this iterable to a list.
+   */
   def toList: List[A] =
     toIterable.toList
 
+  /**
+   * Convert this iterable to a seq.
+   */
   def toSeq: Seq[A] =
     toIterable.toSeq
 
+  /**
+   * Convert this iterable to a stream.
+   */
   def toStream: Stream[A] =
     toIterable.toStream
 
@@ -193,6 +253,9 @@ trait Iterable1[+A] {
 }
 
 object Iterable1 {
+  /**
+   * Add methods to 'scala.collection.Iterable[A]'.
+   */
   case class RichIterable[+A](it: Iterable[A]) {
     def +::[AA >: A](h: AA): Iterable1[AA] =
       new Iterable1[AA] {
@@ -204,8 +267,21 @@ object Iterable1 {
   implicit def IterableToIterable1[A](it: Iterable[A]): RichIterable[A] =
     RichIterable(it)
 
+  /**
+   * A return type used in 'Iterable1' functions that split an iterable. Splitting a non-empty iterable will result in a non-empty iterable and a regular iterable.
+   *
+   * Isomorphic to '[A](Boolean, Iterable1[A], Iterable[A])'.
+   */
   sealed trait BreakIterable1[+A]
+
+  /**
+   * The iterable split in two with non-empty first.
+   */
   case class LeftBreakIterable1[+A](x: Iterable1[A], y: Iterable[A]) extends BreakIterable1[A]
+
+  /**
+   * The iterable split in two with non-empty second.
+   */
   case class RightBreakIterable1[+A](x: Iterable[A], y: Iterable1[A]) extends BreakIterable1[A]
 
 }
