@@ -164,6 +164,12 @@ trait Iterator1[+A] extends TraversableOnce[A] {
   }
 
   /**
+   * Flatten an iterator of iterator.
+   */
+  def flatten[I](implicit I1: A => Iterator1[I]): Iterator1[I] =
+    flatMap(I1)
+
+  /**
    * Runs the iterator sequence effect (`flatMap`) of functions on this iterator.
    */
   def <*>:[B](f: Iterator1[A => B]): Iterator1[B] =
@@ -341,6 +347,10 @@ trait Iterator1[+A] extends TraversableOnce[A] {
    */
   def toStream: Stream[A] =
     first #:: rest.toStream
+
+  def sequenceReader[X, Y](implicit I: A => X => Y): X => Iterator1[Y] =
+    x =>
+      map(I(_)(x))
 
   override def toString =
     "non-empty iterator (Iterator1)"
