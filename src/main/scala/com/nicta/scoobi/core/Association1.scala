@@ -1,7 +1,7 @@
 package com.nicta.scoobi
 package core
 
-import impl.collection.Iterable1
+import impl.collection.{Iterator1, Iterable1}
 import scalaz._, Scalaz._
 
 sealed trait Association1[+K, +V] {
@@ -47,6 +47,23 @@ sealed trait Association1[+K, +V] {
   def traverseKey[F[_]: Applicative, L, VV >: V](f: K => F[L]): F[Association1[L, VV]] =
     implicitly[Functor[F]].map(f(key))(l => Association1(l, values))
 
+  def forall(p: V => Boolean): Boolean =
+    values forall p
+
+  def exists(p: V => Boolean): Boolean =
+    values exists p
+
+  def find(p: V => Boolean): Option[V] =
+    values find p
+
+  def iterator: Iterator1[V] =
+    values.iterator
+
+  def nvalues: Int =
+    values.size
+
+  override def toString: String =
+    "Association(" + key + ", " + values.toString + ")"
 }
 
 object Association1 {
@@ -57,6 +74,12 @@ object Association1 {
       val values =
         vs
     }
+
+  def single[K, V](k: K, v: V): Association1[K, V] =
+    apply(k, Iterable1.single(v))
+
+  def many[K, V](k: K, v: V, vs: V*): Association1[K, V] =
+    apply(k, Iterable1(v, vs: _*))
 
   def keyL[K, V]: Association1[K, V] @> K =
     Lens(a => Store(Association1(_, a.values), a.key))
