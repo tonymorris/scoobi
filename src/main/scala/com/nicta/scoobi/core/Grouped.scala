@@ -33,9 +33,6 @@ sealed trait Grouped[K, V] {
   def bimap[L, W](f: K => L, g: V => W)(implicit ML: Manifest[L], FL: WireFormat[L], MW: Manifest[W], FW: WireFormat[W]): Grouped[L, W] =
     Grouped(list map (_ bimap (f, g)))
 
-
-  // product, ap
-
 }
 
 object Grouped {
