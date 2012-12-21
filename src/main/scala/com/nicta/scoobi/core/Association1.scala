@@ -32,6 +32,9 @@ sealed trait Association1[+K, +V] {
   def ***[KK >: K, W](w: Association1[KK, W])(implicit S: Semigroup[KK]): Association1[KK, (V, W)] =
     product(w)
 
+  def productKey[L, VV >: V](w: Association1[L, VV]): Association1[(K, L), VV] =
+    Association1((key, w.key), values ++ w.values)
+
   def ap[KK >: K, W](f: Association1[KK, V => W])(implicit S: Semigroup[KK]): Association1[KK, W] =
     Association1(S.append(key, f.key), values ap f.values)
 
