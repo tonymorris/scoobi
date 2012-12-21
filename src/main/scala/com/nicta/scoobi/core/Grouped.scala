@@ -4,40 +4,42 @@ package core
 import impl.collection.Iterable1
 
 sealed trait Grouped[K, V] {
-  val list: DList[(K, Iterable1[V])]
+  val list: DList[Association1[K, V]]
+
+  def mapValues[W](f: Iterable1[V] => Iterable1[W])(implicit MK: Manifest[K], FK: WireFormat[K], MW: Manifest[W], FW: WireFormat[W]): Grouped[K, W] =
+    Grouped(list map (_ mapValues f))
 
   def map[W](f: V => W)(implicit MK: Manifest[K], FK: WireFormat[K], MW: Manifest[W], FW: WireFormat[W]): Grouped[K, W] =
-    mapValues(_ map f)
-
-  // foreach
+    Grouped(list map (_ map f))
 
   def :->[W](f: V => W)(implicit MK: Manifest[K], FK: WireFormat[K], MW: Manifest[W], FW: WireFormat[W]): Grouped[K, W] =
     map(f)
 
   def mapKeys[L](f: K => L)(implicit ML: Manifest[L], FL: WireFormat[L], MV: Manifest[V], FV: WireFormat[V]): Grouped[L, V] =
-    Grouped(list map {
-      case (k, vs) => (f(k), vs)
-    })
+    Grouped(list map (_ mapKey f))
 
   def <-:[L](f: K => L)(implicit ML: Manifest[L], FL: WireFormat[L], MV: Manifest[V], FV: WireFormat[V]): Grouped[L, V] =
     mapKeys(f)
 
-  def mapValues[W](f: Iterable1[V] => Iterable1[W])(implicit MK: Manifest[K], FK: WireFormat[K], MW: Manifest[W], FW: WireFormat[W]): Grouped[K, W] =
-    Grouped(list map {
-      case (k, vs) => (k, f(vs))
-    })
-
-  // bimap, product, ap
-
   def keys(implicit MK: Manifest[K], FK: WireFormat[K]): DList[K] =
-    list map (_._1)
+    list map (_.key)
 
-  def values(implicit MW: Manifest[V], FW: WireFormat[V]) =
-    list map (_._2)
+  def values(implicit MW: Manifest[V], FW: WireFormat[V]): DList[Iterable1[V]] =
+    list map (_.values)
+
+  def valuesF(implicit MW: Manifest[V], FW: WireFormat[V]): DList[V] =
+    list flatMap (_.values.toIterable)
+
+  def bimap[L, W](f: K => L, g: V => W)(implicit ML: Manifest[L], FL: WireFormat[L], MW: Manifest[W], FW: WireFormat[W]): Grouped[L, W] =
+    Grouped(list map (_ bimap (f, g)))
+
+
+  // product, ap
+
 }
 
 object Grouped {
-  def apply[K, V](x: DList[(K, Iterable1[V])]): Grouped[K, V] =
+  def apply[K, V](x: DList[Association1[K, V]]): Grouped[K, V] =
     new Grouped[K, V] {
       val list =
         x

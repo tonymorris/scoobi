@@ -415,9 +415,7 @@ object Iterable1 {
   def headL[A]: Iterable1[A] @> A =
     Lens(i => Store(h => h +:: i.tail, i.head))
 
-  implicit def Iterable1WireFormat[A: core.WireFormat]: core.WireFormat[Iterable1[A]] = {
-    val is = implicitly[core.WireFormat[Iterable[A]]]
-    val i  = implicitly[core.WireFormat[A]]
-    i *** is xmap (e => e._1 +:: e._2, (q: Iterable1[A]) => (q.head, q.tail))
-  }
+  implicit def Iterable1WireFormat[A: core.WireFormat]: core.WireFormat[Iterable1[A]] =
+    implicitly[core.WireFormat[(A, Iterable[A])]] xmap
+      (e => e._1 +:: e._2, (q: Iterable1[A]) => (q.head, q.tail))
 }

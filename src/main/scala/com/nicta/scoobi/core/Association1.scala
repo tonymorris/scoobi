@@ -20,6 +20,9 @@ sealed trait Association1[+K, +V] {
   def mapKey[L](f: K => L): Association1[L, V] =
     Association1(f(key), values)
 
+  def mapValues[W](f: Iterable1[V] => Iterable1[W]): Association1[K, W] =
+    Association1(key, f(values))
+
   def <-:[L](f: K => L): Association1[L, V] =
     mapKey(f)
 
@@ -90,19 +93,19 @@ object Association1 {
   def firstValueL[K, V]: Association1[K, V] @> V =
     valuesL >=> Iterable1.headL
 
-  implicit def Associative1Functor[K]: Functor[({type λ[α] = Association1[K, α]})#λ] =
+  implicit def Association1Functor[K]: Functor[({type λ[α] = Association1[K, α]})#λ] =
     new Functor[({type λ[α] = Association1[K, α]})#λ] {
       def map[A, B](a: Association1[K, A])(f: A => B) =
         a map f
     }
 
-  implicit def Associative1Zip[K: Semigroup]: Zip[({type λ[α] = Association1[K, α]})#λ] =
+  implicit def Association1Zip[K: Semigroup]: Zip[({type λ[α] = Association1[K, α]})#λ] =
     new Zip[({type λ[α] = Association1[K, α]})#λ] {
       def zip[A, B](a: => Association1[K, A], b: => Association1[K, B]) =
         a product b
     }
 
-  implicit def Associative1ApplyZip[K: Semigroup]: Zip[({type λ[α] = Association1[K, α]})#λ] with Apply[({type λ[α] = Association1[K, α]})#λ] =
+  implicit def Association1ApplyZip[K: Semigroup]: Zip[({type λ[α] = Association1[K, α]})#λ] with Apply[({type λ[α] = Association1[K, α]})#λ] =
     new Zip[({type λ[α] = Association1[K, α]})#λ] with Apply[({type λ[α] = Association1[K, α]})#λ] {
       override def map[A, B](a: Association1[K, A])(f: A => B) =
         a map f
@@ -117,4 +120,10 @@ object Association1 {
       def bimap[A, B, C, D](a: Association1[A, B])(f: A => C, g: B => D): Association1[C, D] =
         a bimap (f, g)
     }
+
+  implicit def Association1WireFormat[K: WireFormat, V: WireFormat]: WireFormat[Association1[K, V]] = {
+    val k = implicitly[WireFormat[(K, Iterable1[V])]]
+    k xmap
+      (e => Association1(e._1, e._2), (q: Association1[K, V]) => (q.key, q.values))
+  }
 }
