@@ -208,10 +208,16 @@ trait Iterable1[+A] {
     foldLeft(b)(op)
 
   /**
-   * Reduce the iterable seeded with the head and the loop function on the tail.
+   * Reduce the iterable seeded with the head and the loop function on the tail. Synonym for `reduceLeft`.
    */
   def reduceLeft[AA >: A](op: (AA, A) => AA): AA =
     tail.foldLeft[AA](head)(op)
+
+  /**
+   * Reduce the iterable seeded with the head and the loop function on the tail. Synonym for `reduceLeft`.
+   */
+  def reduce[AA >: A](op: (AA, A) => AA): AA =
+    reduceLeft(op)
 
   /**
    * Produces an iterable containing cumulative results of applying the operator going left to right.

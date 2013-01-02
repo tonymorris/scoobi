@@ -19,7 +19,7 @@ package plan
 
 import core._
 import io.DataSource
-
+import collection.Iterable1
 
 /** An implemenentation of the DList trait that builds up a DAG of computation nodes. */
 class DListImpl[A : Manifest : WireFormat] private[scoobi] (comp: Smart.DComp[A, Arr]) extends DList[A] {
@@ -43,24 +43,34 @@ class DListImpl[A : Manifest : WireFormat] private[scoobi] (comp: Smart.DComp[A,
 
   def ++(ins: DList[A]*): DList[A] = new DListImpl(Smart.Flatten(comp :: ins.map(_.getComp).toList))
 
+  /**Group the values of a distributed list with key-value elements by key. */
+  def groupByKey1[K, V]
+  (implicit ev: Smart.DComp[A, Arr] <:< Smart.DComp[(K, V), Arr],
+   mK: Manifest[K],
+   wtK: WireFormat[K],
+   grpK: Grouping[K],
+   mV: Manifest[V],
+   wtV: WireFormat[V]): Association1[K, V] =
+    error("")
+
   def groupByKey[K, V]
       (implicit ev:   Smart.DComp[A, Arr] <:< Smart.DComp[(K, V), Arr],
                 mK:   Manifest[K],
                 wtK:  WireFormat[K],
                 grpK: Grouping[K],
                 mV:   Manifest[V],
-                wtV:  WireFormat[V]): DList[(K, Iterable[V])] = new DListImpl(Smart.GroupByKey(comp))
+                wtV:  WireFormat[V]): DList[(K, Iterable1[V])] = new DListImpl(Smart.GroupByKey(comp))
 
   def combine[K, V]
       (f: (V, V) => V)
-      (implicit ev:   Smart.DComp[A, Arr] <:< Smart.DComp[(K,Iterable[V]), Arr],
+      (implicit ev:   Smart.DComp[A, Arr] <:< Smart.DComp[(K,Iterable1[V]), Arr],
                 mK:   Manifest[K],
                 wtK:  WireFormat[K],
                 grpK: Grouping[K],
                 mV:   Manifest[V],
                 wtV:  WireFormat[V]): DList[(K, V)] = new DListImpl(Smart.Combine(comp, f))
 
-  def materialise: DObject[Iterable[A]] = new DObjectImpl(Smart.Materialise(comp))
+  def materialise: DObject[Iterable1[A]] = new DObjectImpl(Smart.Materialise(comp))
 
   def groupBarrier: DList[A] = {
     val dofn = new DoFn[A, A] {

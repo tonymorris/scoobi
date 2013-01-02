@@ -18,6 +18,7 @@ package impl
 package exec
 
 import core._
+import collection.Iterable1
 
 /** A producer of a TaggedReducer. */
 trait ReducerLike[K, V, B, E] {
@@ -35,7 +36,7 @@ abstract case class TaggedReducer[K, V, B, E]
 
   /** The actual 'reduce' function that will be by Hadoop in the reducer task. */
   def setup(env: E)
-  def reduce(env: E, key: K, values: Iterable[V], emitter: Emitter[B])
+  def reduce(env: E, key: K, values: collection.Iterable1[V], emitter: Emitter[B])
   def cleanup(env: E, emitter: Emitter[B])
 }
 
@@ -48,6 +49,6 @@ class TaggedIdentityReducer[B : Manifest : WireFormat](tag: Int)
 
   /** Identity reducing - ignore the key. */
   def setup(env: Unit) {}
-  def reduce(env: Unit, key: Int, values: Iterable[B], emitter: Emitter[B]) { values.foreach { emitter.emit(_) } }
+  def reduce(env: Unit, key: Int, values: Iterable1[B], emitter: Emitter[B]) { values.foreach { emitter.emit(_) } }
   def cleanup(env: Unit, emitter: Emitter[B]) {}
 }

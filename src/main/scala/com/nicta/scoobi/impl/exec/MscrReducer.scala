@@ -24,7 +24,7 @@ import scala.collection.JavaConversions._
 import io.OutputConverter
 import rtt._
 import core._
-
+import collection.Iterable1
 
 /** Hadoop Reducer class for an MSCR. */
 class MscrReducer[K2, V2, B, E, K3, V3] extends HReducer[TaggedKey, TaggedValue, K3, V3] {
@@ -61,7 +61,7 @@ class MscrReducer[K2, V2, B, E, K3, V3] extends HReducer[TaggedKey, TaggedValue,
     val reducer = outputs(channel)._2._2.asInstanceOf[TaggedReducer[K2, V2, B, E]]
 
     /* Convert java.util.Iterable[TaggedValue] to Iterable[V2]. */
-    val untaggedValues = new Iterable[V2] { def iterator = values.iterator map (_.get(channel).asInstanceOf[V2]) }
+    val untaggedValues: Iterable1[V2] = error("") // new Iterable[V2] { def iterator = values.iterator map (_.get(channel).asInstanceOf[V2]) }
 
     /* Do the reduction. */
     val emitter = new Emitter[B] {

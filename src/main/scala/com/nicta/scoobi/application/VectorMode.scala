@@ -35,7 +35,7 @@ import impl.plan._
 import Smart._
 import io.DataSource
 import io.DataSink
-
+import impl.collection.Iterable1
 
 /**
   * A fast local mode for execution of Scoobi applications.
@@ -151,7 +151,7 @@ object VectorMode {
   }
 
 
-  private def computeGroupByKey[K, V](gbk: GroupByKey[K, V])(implicit conf: ScoobiConfiguration): Vector[(K, Iterable[V])] = {
+  private def computeGroupByKey[K, V](gbk: GroupByKey[K, V])(implicit conf: ScoobiConfiguration): Vector[(K, Iterable1[V])] = {
     val in: Vector[(K, V)] = computeArr(gbk.in)
     val grp: Grouping[K] = gbk.grpK
 
@@ -196,11 +196,12 @@ object VectorMode {
     val vec = Vector(sorted.flatMap(_ map { case (k, kvs) => (k, kvs.map(_._2).toIterable) }): _*)
     logger.debug("computeGroupByKey: " + vec)
     vec
+    error("")
   }
 
 
   private def computeCombine[K, V](combine: Combine[K, V])(implicit conf: ScoobiConfiguration): Vector[(K, V)] = {
-    val in: Vector[(K, Iterable[V])] = computeArr(combine.in)
+    val in: Vector[(K, Iterable1[V])] = computeArr(combine.in)
     val vec = in map { case (k, vs) => (k, vs.reduce(combine.f)) }
     logger.debug("computeCombine: " + vec)
     vec
@@ -210,7 +211,7 @@ object VectorMode {
   private def computeArr[A](comp: Smart.DComp[A, Arr])(implicit conf: ScoobiConfiguration): Vector[A] = comp match {
     case ld@Load(_)                   => computeLoad(ld)
     case pd@ParallelDo(_, _, _, _, _) => computeParallelDo(pd)
-    case gbk@GroupByKey(_)            => computeGroupByKey(gbk)
+    case gbk@GroupByKey(_)            => error("") // computeGroupByKey(gbk)
     case c@Combine(in, op)            => computeCombine(c)
     case Flatten(ins)                 => ins.map(computeArr(_)).reduce(_++_)
   }

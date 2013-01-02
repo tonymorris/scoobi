@@ -20,6 +20,7 @@ import impl.plan._
 import io.func.FunctionInput
 import io.DataSource
 import io.seq.SeqInput
+import impl.collection.Iterable1
 
 /**
  * A list that is distributed across multiple machines.
@@ -63,13 +64,13 @@ trait DList[A] {
    wtK: WireFormat[K],
    grpK: Grouping[K],
    mV: Manifest[V],
-   wtV: WireFormat[V]): DList[(K, Iterable[V])]
+   wtV: WireFormat[V]): DList[(K, Iterable1[V])]
 
   /**Apply an associative function to reduce the collection of values to a single value in a
    * key-value-collection distributed list. */
   def combine[K, V]
   (f: (V, V) => V)
-  (implicit ev: Smart.DComp[A, Arr] <:< Smart.DComp[(K, Iterable[V]), Arr],
+  (implicit ev: Smart.DComp[A, Arr] <:< Smart.DComp[(K, Iterable1[V]), Arr],
    mK: Manifest[K],
    wtK: WireFormat[K],
    grpK: Grouping[K],
@@ -78,7 +79,7 @@ trait DList[A] {
 
   /**Turn a distributed list into a normal, non-distributed collection that can be accessed
    * by the client. */
-  def materialise: DObject[Iterable[A]]
+  def materialise: DObject[Iterable1[A]]
 
   /**Mark that all DList preceding transformations up to the first groupByKey must be within
    * the same Map-Reduce job. */
@@ -171,7 +172,7 @@ trait DList[A] {
   }
 
   /**Group the values of a distributed list according to some discriminator function. */
-  def groupBy[K: Manifest : WireFormat : Grouping](f: A => K): DList[(K, Iterable[A])] =
+  def groupBy[K: Manifest : WireFormat : Grouping](f: A => K): DList[(K, Iterable1[A])] =
     map(x => (f(x), x)).groupByKey
 
   /** Group the values of a distributed list with key-value elements by key. And explicitly
@@ -182,14 +183,14 @@ trait DList[A] {
     mK: Manifest[K],
     wtK: WireFormat[K],
     mV: Manifest[V],
-    wtV: WireFormat[V]): DList[(K, Iterable[V])] = {
+    wtV: WireFormat[V]): DList[(K, Iterable1[V])] = {
     implicit def grping = grpK
     groupByKey
   }
 
   /** Group the value of a distributed list according to some discriminator function
     * and some grouping function. */
-  def groupWith[K](f: A => K)(grpK: Grouping[K])(implicit mK: Manifest[K], wtK: WireFormat[K]): DList[(K, Iterable[A])] = {
+  def groupWith[K](f: A => K)(grpK: Grouping[K])(implicit mK: Manifest[K], wtK: WireFormat[K]): DList[(K, Iterable1[A])] = {
     implicit def grping = grpK
     map(x => (f(x), x)).groupByKey
   }
@@ -244,8 +245,8 @@ trait DList[A] {
 
     /* Group all elements together (so they go to the same reducer task) and then
      * combine them. */
-    val x: DObject[Iterable[A]] = imc.groupBy(_ => 0).combine(op).map(_._2).materialise
-    x map (_.headOption getOrElse (sys.error("the reduce operation is called on an empty list")))
+    val x: DObject[Iterable1[A]] = imc.groupBy(_ => 0).combine(op).map(_._2).materialise
+    x map (_.head)
   }
 
   /**Multiply up the elements of this distribute list. */

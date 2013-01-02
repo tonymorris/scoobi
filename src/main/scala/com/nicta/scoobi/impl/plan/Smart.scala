@@ -332,13 +332,15 @@ object Smart {
       in.convertParallelDo(ci, this)
     }
 
+    import collection.Iterable1
+
     def convertNew2[K : Manifest : WireFormat : Grouping,
                     V : Manifest : WireFormat](ci: ConvertInfo):
                     AST.Node[(K,V), Arr] with KVLike[K,V] = {
 
       if (ci.mscrs.exists(_.containsGbkReducer(this))) {
-        val pd: ParallelDo[(K, Iterable[V]), (K,V), E] = this.asInstanceOf[ParallelDo[(K, Iterable[V]), (K,V), E]]
-        val n: AST.Node[(K, Iterable[V]), Arr] = pd.in.convert(ci)
+        val pd: ParallelDo[(K, Iterable1[V]), (K,V), E] = this.asInstanceOf[ParallelDo[(K, Iterable1[V]), (K,V), E]]
+        val n: AST.Node[(K, Iterable1[V]), Arr] = pd.in.convert(ci)
         val e: AST.Node[E, Exp] = pd.env.convert(ci)
 
         pd.insert2(ci, new AST.GbkReducer(n, e, pd.dofn) with KVLike[K,V] {
@@ -372,6 +374,8 @@ object Smart {
   }
 
 
+  import collection.Iterable1
+
   /** The GroupByKey node type specifies the building of a DComp as a result of partitioning an exiting
     * key-value DComp by key. */
   case class GroupByKey[K, V]
@@ -379,7 +383,7 @@ object Smart {
       (implicit mK: Manifest[K], wtK: WireFormat[K], val grpK: Grouping[K],
                 mV: Manifest[V], wtV: WireFormat[V])
 
-    extends DComp[(K, Iterable[V]), Arr] {
+    extends DComp[(K, Iterable1[V]), Arr] {
 
     override val toString = "GroupByKey" + id
 
@@ -387,7 +391,7 @@ object Smart {
 
     // Optimisation
     // ~~~~~~~~~~~~
-    def justCopy(copied: CopyTable, cf: CopyFn[_,_]): (DComp[(K, Iterable[V]), Arr], CopyTable, Boolean) = {
+    def justCopy(copied: CopyTable, cf: CopyFn[_,_]): (DComp[(K, Iterable1[V]), Arr], CopyTable, Boolean) = {
       val cfKV = cf.asInstanceOf[CopyFn[(K, V), Arr]]
       val (inUpd, copiedUpd, b) = cfKV(in, copied)
       val gbk = GroupByKey(inUpd)
@@ -398,7 +402,7 @@ object Smart {
       * mean subsequent encounters of this node (that is, other outputs of this GroupByKey node) will result
       * in another copy, thereby replicating GroupByKeys with multiple outputs. If this GroupByKey node has a
       * Flatten as its input, replicate the Flatten node as well using the same technique. */
-    override def optSplitGbks(copied: CopyTable): (DComp[(K, Iterable[V]), Arr], CopyTable, Boolean) = copyOnce(copied) {
+    override def optSplitGbks(copied: CopyTable): (DComp[(K, Iterable1[V]), Arr], CopyTable, Boolean) = copyOnce(copied) {
       in match {
         case Flatten(ins) => {
           val (insUpd, copiedUpd, b) = ins.foldLeft((Nil: List[DComp[(K, V), Arr]], copied, false)) { case ((cps, ct, b), n) =>
@@ -421,15 +425,16 @@ object Smart {
     // Conversion
     // ~~~~~~~~~~
     def convertNew(ci: ConvertInfo) = {
-      insert(ci, AST.GroupByKey(in.convert2(ci)))
+      error("")
+      //insert(ci, AST.GroupByKey(in.convert2(ci)))
     }
 
     def convertAux[A: Manifest : WireFormat : Grouping,
               B: Manifest : WireFormat]
               (ci: ConvertInfo, d: DComp[(A, B), Arr]):
-              AST.Node[(A, Iterable[B]), Arr] with KVLike[A, Iterable[B]] = {
-         insert2(ci, new AST.GroupByKey[A,B](d.convert2(ci)) with KVLike[A, Iterable[B]] {
-           def mkTaggedIdentityMapper(tags: Set[Int]) = new TaggedIdentityMapper[A,Iterable[B]](tags)})
+              AST.Node[(A, Iterable1[B]), Arr] with KVLike[A, Iterable1[B]] = {
+         insert2(ci, new AST.GroupByKey[A,B](d.convert2(ci)) with KVLike[A, Iterable1[B]] {
+           def mkTaggedIdentityMapper(tags: Set[Int]) = new TaggedIdentityMapper[A,Iterable1[B]](tags)})
       }
 
     def convertNew2[K1 : Manifest : WireFormat : Grouping,
@@ -443,10 +448,10 @@ object Smart {
     override def convertParallelDo[B : Manifest : WireFormat,
                                    E : Manifest : WireFormat]
         (ci: ConvertInfo,
-         pd: ParallelDo[(K,Iterable[V]), B, E])
+         pd: ParallelDo[(K,Iterable1[V]), B, E])
       : AST.Node[B, Arr] = {
 
-      val n: AST.Node[(K, Iterable[V]), Arr] = convert(ci)
+      val n: AST.Node[(K, Iterable1[V]), Arr] = convert(ci)
       val e: AST.Node[E, Exp] = pd.env.convert(ci)
       if ( ci.mscrs.exists(_.containsGbkReducer(pd)) ) {
         pd.insert(ci, AST.GbkReducer(n, e, pd.dofn))
@@ -461,7 +466,7 @@ object Smart {
     * function to the values of an existing key-values DComp. */
   case class Combine[K : Manifest : WireFormat : Grouping,
                      V : Manifest : WireFormat]
-      (in: DComp[(K, Iterable[V]), Arr],
+      (in: DComp[(K, Iterable1[V]), Arr],
        f: (V, V) => V)
     extends DComp[(K, V), Arr] {
 
@@ -472,7 +477,7 @@ object Smart {
     // Optimisation
     // ~~~~~~~~~~~~
     def justCopy(copied: CopyTable, cf: CopyFn[_,_]): (DComp[(K, V), Arr], CopyTable, Boolean) = {
-      val cfKIV = cf.asInstanceOf[CopyFn[(K, Iterable[V]), Arr]]
+      val cfKIV = cf.asInstanceOf[CopyFn[(K, Iterable1[V]), Arr]]
       val (inUpd, copiedUpd, b) = cfKIV(in, copied)
       val comb = Combine(inUpd, f)
       (comb, copiedUpd + (this -> comb), b)
@@ -486,9 +491,9 @@ object Smart {
         case _                => {
           val (inUpd, copiedUpd, _) = in.optCombinerToParDos(copied)
 
-          val dofn = new EnvDoFn[(K, Iterable[V]), (K, V), Unit] {
+          val dofn = new EnvDoFn[(K, Iterable1[V]), (K, V), Unit] {
             def setup(env: Unit) = {}
-            def process(env: Unit, input: (K, Iterable[V]), emitter: Emitter[(K, V)]) = {
+            def process(env: Unit, input: (K, Iterable1[V]), emitter: Emitter[(K, V)]) = {
               val key = input._1
               val values = input._2.toStream
               emitter.emit(key, values.reduce(f))
@@ -638,7 +643,7 @@ object Smart {
 
 
   /** The Materialise node type specifies the conversion of an Arr DComp to an Exp DComp. */
-  case class Materialise[A : Manifest : WireFormat](in: DComp[A, Arr]) extends DComp[Iterable[A], Exp] {
+  case class Materialise[A : Manifest : WireFormat](in: DComp[A, Arr]) extends DComp[Iterable1[A], Exp] {
 
     override val toString = "Materialise" + id
 

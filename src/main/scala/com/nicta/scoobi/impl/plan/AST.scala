@@ -21,6 +21,8 @@ import core._
 import exec._
 import util.UniqueInt
 
+import collection.Iterable1
+
 /* Execution plan intermediate representation. */
 object AST {
 
@@ -101,7 +103,7 @@ object AST {
                              implicitly[Manifest[(K,V)]], implicitly[WireFormat[(K,V)]],
                              implicitly[Manifest[Unit]], implicitly[WireFormat[Unit]]) {
         def setup(env: Unit) {}
-        def reduce(env: Unit, key: K, values: Iterable[V], emitter: Emitter[(K, V)]) {
+        def reduce(env: Unit, key: K, values: Iterable1[V], emitter: Emitter[(K, V)]) {
           values.foreach { (v: V) => emitter.emit((key, v)) }
         }
         def cleanup(env: Unit, emitter: Emitter[(K, V)]) {}
@@ -115,7 +117,7 @@ object AST {
 
   /** Combiner. */
   case class Combiner[K, V]
-      (in: Node[(K, Iterable[V]), Arr],
+      (in: Node[(K, Iterable1[V]), Arr],
        f: (V, V) => V)
       (implicit mK:  Manifest[K], wtK: WireFormat[K], grpK: Grouping[K],
                 mV:  Manifest[V], wtV: WireFormat[V],
@@ -128,7 +130,7 @@ object AST {
 
     def mkTaggedReducer(tag: Int) = new TaggedReducer[K, V, (K, V), Unit](tag)(mK, wtK, grpK, mV, wtV, mKV, wtKV, implicitly[Manifest[Unit]], implicitly[WireFormat[Unit]]) {
       def setup(env: Unit) = {}
-      def reduce(env: Unit, key: K, values: Iterable[V], emitter: Emitter[(K, V)]) = {
+      def reduce(env: Unit, key: K, values: Iterable1[V], emitter: Emitter[(K, V)]) = {
         emitter.emit((key, values.reduce(f)))
       }
       def cleanup(env: Unit, emitter: Emitter[(K, V)]) {}
@@ -140,7 +142,7 @@ object AST {
         (implicit mB: Manifest[B], wtB: WireFormat[B], mE: Manifest[E], wtE: WireFormat[E]) =
       new TaggedReducer[K, V, B, E](tag)(mK, wtK, grpK, mV, wtV, mB, wtB, mE, wtE) {
         def setup(env: E) = dofn.setup(env)
-        def reduce(env: E, key: K, values: Iterable[V], emitter: Emitter[B]) = {
+        def reduce(env: E, key: K, values: Iterable1[V], emitter: Emitter[B]) = {
           dofn.setup(env)
           dofn.process(env, (key, values.reduce(f)), emitter)
         }
@@ -158,14 +160,14 @@ object AST {
                         V : Manifest : WireFormat,
                         B : Manifest : WireFormat,
                         E : Manifest : WireFormat]
-      (in: Node[(K, Iterable[V]), Arr],
+      (in: Node[(K, Iterable1[V]), Arr],
        env: Node[E, Exp],
-       dofn: EnvDoFn[((K, Iterable[V])), B, E])
+       dofn: EnvDoFn[((K, Iterable1[V])), B, E])
     extends Node[B, Arr] with ReducerLike[K, V, B, E] {
 
     def mkTaggedReducer(tag: Int) = new TaggedReducer[K, V, B, E](tag) {
       def setup(env: E) = dofn.setup(env)
-      def reduce(env: E, key: K, values: Iterable[V], emitter: Emitter[B]) = {
+      def reduce(env: E, key: K, values: Iterable1[V], emitter: Emitter[B]) = {
         dofn.setup(env)
         dofn.process(env, (key, values), emitter)
       }
@@ -223,14 +225,14 @@ object AST {
   case class GroupByKey[K : Manifest : WireFormat : Grouping,
                         V : Manifest : WireFormat]
       (in: Node[(K, V), Arr])
-    extends Node[(K, Iterable[V]), Arr] with ReducerLike[K, V, (K, Iterable[V]), Unit] {
+    extends Node[(K, Iterable1[V]), Arr] with ReducerLike[K, V, (K, Iterable1[V]), Unit] {
 
-    def mkTaggedReducer(tag: Int) = new TaggedReducer[K, V, (K, Iterable[V]), Unit](tag) {
+    def mkTaggedReducer(tag: Int) = new TaggedReducer[K, V, (K, Iterable1[V]), Unit](tag) {
       def setup(env: Unit) {}
-      def reduce(env: Unit, key: K, values: Iterable[V], emitter: Emitter[(K, Iterable[V])]) {
+      def reduce(env: Unit, key: K, values: Iterable1[V], emitter: Emitter[(K, Iterable1[V])]) {
         emitter.emit((key, values))
       }
-      def cleanup(env: Unit, emitter: Emitter[(K, Iterable[V])]) {}
+      def cleanup(env: Unit, emitter: Emitter[(K, Iterable1[V])]) {}
     }
 
     override def toString = "GroupByKey" + id
