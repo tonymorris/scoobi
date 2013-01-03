@@ -26,7 +26,7 @@ object Scoobi extends core.WireFormatImplicits with core.GroupingImplicits with 
   type WireFormat[A] = com.nicta.scoobi.core.WireFormat[A]
   val DList = com.nicta.scoobi.core.DList
   type DList[A] = com.nicta.scoobi.core.DList[A]
-  implicit def traversableToDList[A : Manifest : WireFormat](trav: Traversable[A]) = DList.traversableToDList(trav)
+  implicit def traversableToDList[A : WireFormat](trav: Traversable[A]) = DList.traversableToDList(trav)
 
   val DObject = com.nicta.scoobi.core.DObject
   type DObject[A] = com.nicta.scoobi.core.DObject[A]
@@ -67,11 +67,11 @@ trait InputsOutputs {
 
   def fromTextFile(paths: String*) = TextInput.fromTextFile(paths: _*)
   def fromTextFile(paths: List[String]) = TextInput.fromTextFile(paths)
-  def fromDelimitedTextFile[A : Manifest : WireFormat]
+  def fromDelimitedTextFile[A : WireFormat]
       (path: String, sep: String = "\t")
       (extractFn: PartialFunction[List[String], A]) = TextInput.fromDelimitedTextFile(path, sep)(extractFn)
-  def toTextFile[A : Manifest](dl: DList[A], path: String, overwrite: Boolean = false) = TextOutput.toTextFile(dl, path, overwrite)
-  def toDelimitedTextFile[A <: Product : Manifest](dl: DList[A], path: String, sep: String = "\t", overwrite: Boolean = false) = TextOutput.toDelimitedTextFile(dl, path, sep, overwrite)
+  def toTextFile[A](dl: DList[A], path: String, overwrite: Boolean = false) = TextOutput.toTextFile(dl, path, overwrite)
+  def toDelimitedTextFile[A <: Product](dl: DList[A], path: String, sep: String = "\t", overwrite: Boolean = false) = TextOutput.toDelimitedTextFile(dl, path, sep, overwrite)
 
 
   /* Sequence File I/O */
@@ -80,19 +80,19 @@ trait InputsOutputs {
   type SeqSchema[A] = com.nicta.scoobi.io.sequence.SeqSchema[A]
 
   import org.apache.hadoop.io.Writable
-  def convertKeyFromSequenceFile[K : Manifest : WireFormat : SeqSchema](paths: String*): DList[K] = SequenceInput.convertKeyFromSequenceFile(paths: _*)
-  def convertKeyFromSequenceFile[K : Manifest : WireFormat : SeqSchema](paths: List[String], checkKeyType: Boolean = true): DList[K] = SequenceInput.convertKeyFromSequenceFile(paths, checkKeyType)
-  def convertValueFromSequenceFile[V : Manifest : WireFormat : SeqSchema](paths: String*): DList[V] = SequenceInput.convertValueFromSequenceFile(paths: _*)
-  def convertValueFromSequenceFile[V : Manifest : WireFormat : SeqSchema](paths: List[String], checkValueType: Boolean = true): DList[V] = SequenceInput.convertValueFromSequenceFile(paths, checkValueType)
-  def convertFromSequenceFile[K : Manifest : WireFormat : SeqSchema, V : Manifest : WireFormat : SeqSchema](paths: String*): DList[(K, V)] = SequenceInput.convertFromSequenceFile(paths: _*)
-  def convertFromSequenceFile[K : Manifest : WireFormat : SeqSchema, V : Manifest : WireFormat : SeqSchema](paths: List[String], checkKeyValueTypes: Boolean = true): DList[(K, V)] = SequenceInput.convertFromSequenceFile(paths, checkKeyValueTypes)
-  def fromSequenceFile[K <: Writable : Manifest : WireFormat, V <: Writable : Manifest : WireFormat](paths: String*): DList[(K, V)] = SequenceInput.fromSequenceFile(paths: _*)
-  def fromSequenceFile[K <: Writable : Manifest : WireFormat, V <: Writable : Manifest : WireFormat](paths: List[String], checkKeyValueTypes: Boolean = true): DList[(K, V)] = SequenceInput.fromSequenceFile(paths, checkKeyValueTypes)
+  def convertKeyFromSequenceFile[K : WireFormat : SeqSchema](paths: String*): DList[K] = SequenceInput.convertKeyFromSequenceFile(paths: _*)
+  def convertKeyFromSequenceFile[K : WireFormat : SeqSchema](paths: List[String], checkKeyType: Boolean = true): DList[K] = SequenceInput.convertKeyFromSequenceFile(paths, checkKeyType)
+  def convertValueFromSequenceFile[V : WireFormat : SeqSchema](paths: String*): DList[V] = SequenceInput.convertValueFromSequenceFile(paths: _*)
+  def convertValueFromSequenceFile[V : WireFormat : SeqSchema](paths: List[String], checkValueType: Boolean = true): DList[V] = SequenceInput.convertValueFromSequenceFile(paths, checkValueType)
+  def convertFromSequenceFile[K : WireFormat : SeqSchema, V : WireFormat : SeqSchema](paths: String*): DList[(K, V)] = SequenceInput.convertFromSequenceFile(paths: _*)
+  def convertFromSequenceFile[K : WireFormat : SeqSchema, V : WireFormat : SeqSchema](paths: List[String], checkKeyValueTypes: Boolean = true): DList[(K, V)] = SequenceInput.convertFromSequenceFile(paths, checkKeyValueTypes)
+  def fromSequenceFile[K <: Writable : WireFormat, V <: Writable : WireFormat](paths: String*): DList[(K, V)] = SequenceInput.fromSequenceFile(paths: _*)
+  def fromSequenceFile[K <: Writable : WireFormat, V <: Writable : WireFormat](paths: List[String], checkKeyValueTypes: Boolean = true): DList[(K, V)] = SequenceInput.fromSequenceFile(paths, checkKeyValueTypes)
 
   def convertKeyToSequenceFile[K : SeqSchema](dl: DList[K], path: String, overwrite: Boolean = false): DListPersister[K] = SequenceOutput.convertKeyToSequenceFile(dl, path, overwrite)
   def convertValueToSequenceFile[V : SeqSchema](dl: DList[V], path: String, overwrite: Boolean = false): DListPersister[V] = SequenceOutput.convertValueToSequenceFile(dl, path, overwrite)
   def convertToSequenceFile[K : SeqSchema, V : SeqSchema](dl: DList[(K, V)], path: String, overwrite: Boolean = false): DListPersister[(K, V)] = SequenceOutput.convertToSequenceFile(dl, path, overwrite)
-  def toSequenceFile[K <: Writable : Manifest, V <: Writable : Manifest](dl: DList[(K, V)], path: String, overwrite: Boolean = false): DListPersister[(K, V)] = SequenceOutput.toSequenceFile(dl, path, overwrite)
+  def toSequenceFile[K <: Writable, V <: Writable](dl: DList[(K, V)], path: String, overwrite: Boolean = false): DListPersister[(K, V)] = SequenceOutput.toSequenceFile(dl, path, overwrite)
 
 
   /* Avro I/O */
@@ -102,8 +102,8 @@ trait InputsOutputs {
   type AvroSchema[A] = com.nicta.scoobi.io.avro.AvroSchema[A]
   type AvroFixed[A] = com.nicta.scoobi.io.avro.AvroFixed[A]
 
-  def fromAvroFile[A : Manifest : WireFormat : AvroSchema](paths: String*) = AvroInput.fromAvroFile(paths: _*)
-  def fromAvroFile[A : Manifest : WireFormat : AvroSchema](paths: List[String], checkSchemas: Boolean = true) = AvroInput.fromAvroFile(paths, checkSchemas)
+  def fromAvroFile[A : WireFormat : AvroSchema](paths: String*) = AvroInput.fromAvroFile(paths: _*)
+  def fromAvroFile[A : WireFormat : AvroSchema](paths: List[String], checkSchemas: Boolean = true) = AvroInput.fromAvroFile(paths, checkSchemas)
   def toAvroFile[B : AvroSchema](dl: DList[B], path: String, overwrite: Boolean = false) = AvroOutput.toAvroFile(dl, path, overwrite)
 }
 object InputsOutputs extends InputsOutputs
@@ -111,7 +111,7 @@ object InputsOutputs extends InputsOutputs
 trait Lib {
   /* lib stuff */
   
-  implicit def dlistToRelational[K: Manifest: WireFormat: Grouping, A: Manifest: WireFormat](dl: DList[(K, A)]): com.nicta.scoobi.lib.Relational[K,A] = com.nicta.scoobi.lib.Relational(dl)
+  implicit def dlistToRelational[K: WireFormat: Grouping, A: WireFormat](dl: DList[(K, A)]): com.nicta.scoobi.lib.Relational[K,A] = com.nicta.scoobi.lib.Relational(dl)
   implicit def relationalToDList[K, A](r: com.nicta.scoobi.lib.Relational[K, A]): DList[(K,A)] = r.left
   
   import com.nicta.scoobi.lib.DVector
@@ -121,7 +121,7 @@ trait Lib {
   import com.nicta.scoobi.lib.InMemVector
   import com.nicta.scoobi.lib.DMatrix
   
-  implicit def dlistToDVector[Elem: Manifest: WireFormat: Ordering, V: Manifest: WireFormat: Ordering](v: DList[(Elem, V)]) = DVector(v)
+  implicit def dlistToDVector[Elem: WireFormat: Ordering, V: WireFormat: Ordering](v: DList[(Elem, V)]) = DVector(v)
   implicit def dvectorToDList[Elem, V](v: DVector[Elem, V]) = v.data
   
   implicit def inMemDenseVectorToDObject[T](in: InMemDenseVector[T]) = in.data
@@ -129,31 +129,31 @@ trait Lib {
    /**
    * Note this is an expensive conversion (it adds an extra map-reduce job), try save the result to reuse if applicable
    */
-  implicit def dlistToRowWiseWithMapReduceJob[E: Manifest: WireFormat: Ordering, T: Manifest: WireFormat](m: DMatrix[E, T]): DRowWiseMatrix[E, T] =
+  implicit def dlistToRowWiseWithMapReduceJob[E: WireFormat: Ordering, T: WireFormat](m: DMatrix[E, T]): DRowWiseMatrix[E, T] =
     DRowWiseMatrix(m.map { case ((r, c), v) => (r, (c, v)) }.groupByKey)
 
-  implicit def dlistToRowWise[Elem: Manifest: WireFormat: Ordering, T: Manifest: WireFormat](m: DList[(Elem, Iterable[(Elem, T)])]): DRowWiseMatrix[Elem, T] =
+  implicit def dlistToRowWise[Elem: WireFormat: Ordering, T: WireFormat](m: DList[(Elem, Iterable[(Elem, T)])]): DRowWiseMatrix[Elem, T] =
     DRowWiseMatrix(m)
 
-  implicit def rowWiseToDList[Elem: Manifest: WireFormat: Ordering, T: Manifest: WireFormat](m: DRowWiseMatrix[Elem, T]) = m.data
+  implicit def rowWiseToDList[Elem: WireFormat: Ordering, T: WireFormat](m: DRowWiseMatrix[Elem, T]) = m.data
 
   
-  implicit def dlistToDMatrix[Elem: Manifest: WireFormat: Ordering, Value: Manifest: WireFormat](
+  implicit def dlistToDMatrix[Elem: WireFormat: Ordering, Value: WireFormat](
     v: DList[((Elem, Elem), Value)]): DMatrix[Elem, Value] =
     DMatrix[Elem, Value](v)
     
-  implicit def dmatrixToDlist[Elem: Manifest: WireFormat: Ordering, Value: Manifest: WireFormat](v: DMatrix[Elem, Value]): DList[((Elem, Elem), Value)] = v.data
+  implicit def dmatrixToDlist[Elem: WireFormat: Ordering, Value: WireFormat](v: DMatrix[Elem, Value]): DList[((Elem, Elem), Value)] = v.data
   
   /**
    * Note this is an expensive conversion (it adds an extra map-reduce job), try save the result to reuse if applicable.
    */
-  implicit def dlistToColWiseWithMapReduceJob[Elem: Manifest: WireFormat: Ordering, T: Manifest: WireFormat](m: DMatrix[Elem, T]): DColWiseMatrix[Elem, T] =
+  implicit def dlistToColWiseWithMapReduceJob[Elem: WireFormat: Ordering, T: WireFormat](m: DMatrix[Elem, T]): DColWiseMatrix[Elem, T] =
     DColWiseMatrix(m.map { case ((r, c), v) => (c, (r, v)) }.groupByKey)
 
-  implicit def dlistToColWise[Elem: Manifest: WireFormat: Ordering, T: Manifest: WireFormat](m: DList[(Elem, Iterable[(Elem, T)])]): DColWiseMatrix[Elem, T] =
+  implicit def dlistToColWise[Elem: WireFormat: Ordering, T: WireFormat](m: DList[(Elem, Iterable[(Elem, T)])]): DColWiseMatrix[Elem, T] =
     DColWiseMatrix(m)
 
-  implicit def colWiseToDList[Elem: Manifest: WireFormat: Ordering, T: Manifest: WireFormat](m: DColWiseMatrix[Elem, T]) = m.data
+  implicit def colWiseToDList[Elem: WireFormat: Ordering, T: WireFormat](m: DColWiseMatrix[Elem, T]) = m.data
   
   
   implicit def inMemVectorToDObject[Elem, T](in: InMemVector[Elem, T]) = in.data

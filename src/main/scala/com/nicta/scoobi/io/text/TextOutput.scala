@@ -34,13 +34,13 @@ object TextOutput {
   lazy val logger = LogFactory.getLog("scoobi.TextOutput")
 
   /** Persist a distributed list as a text file. */
-  def toTextFile[A : Manifest](dl: DList[A], path: String, overwrite: Boolean = false): DListPersister[A] = {
+  def toTextFile[A](dl: DList[A], path: String, overwrite: Boolean = false): DListPersister[A] = {
     val sink = new DataSink[NullWritable, A, A] {
       private val outputPath = new Path(path)
 
       val outputFormat = classOf[TextOutputFormat[NullWritable, A]]
       val outputKeyClass = classOf[NullWritable]
-      val outputValueClass = implicitly[Manifest[A]] match {
+      val outputValueClass: Class[A] = error("""implicitly[Manifest[A]] match {
         case Manifest.Boolean => classOf[java.lang.Boolean].asInstanceOf[Class[A]]
         case Manifest.Char    => classOf[java.lang.Character].asInstanceOf[Class[A]]
         case Manifest.Short   => classOf[java.lang.Short].asInstanceOf[Class[A]]
@@ -50,7 +50,7 @@ object TextOutput {
         case Manifest.Double  => classOf[java.lang.Double].asInstanceOf[Class[A]]
         case Manifest.Byte    => classOf[java.lang.Byte].asInstanceOf[Class[A]]
         case mf               => mf.erasure.asInstanceOf[Class[A]]
-      }
+      }""")
 
       def outputCheck(implicit sc: ScoobiConfiguration) {
         if (Helper.pathExists(outputPath)(sc))
@@ -76,7 +76,7 @@ object TextOutput {
   }
 
   /** Persist a distributed lists of 'Products' (e.g. Tuples) as a deliminated text file. */
-  def toDelimitedTextFile[A <: Product : Manifest](dl: DList[A], path: String, sep: String = "\t", overwrite: Boolean = false): DListPersister[String] = {
+  def toDelimitedTextFile[A <: Product](dl: DList[A], path: String, sep: String = "\t", overwrite: Boolean = false): DListPersister[String] = {
     def anyToString(any: Any, sep: String): String = any match {
       case prod: Product => prod.productIterator.map(anyToString(_, sep)).mkString(sep)
       case _             => any.toString

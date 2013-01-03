@@ -36,7 +36,6 @@ trait SeqSchema[A] {
   type SeqType <: Writable
   def toWritable(x: A): SeqType
   def fromWritable(x: SeqType): A
-  val mf: Manifest[SeqType]
 }
 
 
@@ -46,49 +45,42 @@ object SeqSchema {
     type SeqType = BooleanWritable
     def toWritable(x: Boolean) = new BooleanWritable(x)
     def fromWritable(x: BooleanWritable): Boolean = x.get
-    val mf: Manifest[SeqType] = implicitly
   }
 
   implicit object IntSchema extends SeqSchema[Int] {
     type SeqType = IntWritable
     def toWritable(x: Int) = new IntWritable(x)
     def fromWritable(x: IntWritable): Int = x.get
-    val mf: Manifest[SeqType] = implicitly
   }
 
   implicit object FloatSchema extends SeqSchema[Float] {
     type SeqType = FloatWritable
     def toWritable(x: Float) = new FloatWritable(x)
     def fromWritable(x: FloatWritable): Float = x.get
-    val mf: Manifest[SeqType] = implicitly
   }
 
   implicit object LongSchema extends SeqSchema[Long] {
     type SeqType = LongWritable
     def toWritable(x: Long) = new LongWritable(x)
     def fromWritable(x: LongWritable): Long = x.get
-    val mf: Manifest[SeqType] = implicitly
   }
 
   implicit object DoubleSchema extends SeqSchema[Double] {
     type SeqType = DoubleWritable
     def toWritable(x: Double) = new DoubleWritable(x)
     def fromWritable(x: DoubleWritable): Double = x.get
-    val mf: Manifest[SeqType] = implicitly
   }
 
   implicit object StringSchema extends SeqSchema[String] {
     type SeqType = Text
     def toWritable(x: String) = new Text(x)
     def fromWritable(x: Text): String = x.toString
-    val mf: Manifest[SeqType] = implicitly
   }
 
   implicit object ByteSchema extends SeqSchema[Byte] {
     type SeqType = ByteWritable
     def toWritable(x: Byte) = new ByteWritable(x)
     def fromWritable(x: ByteWritable): Byte = x.get
-    val mf: Manifest[SeqType] = implicitly
   }
 
   implicit def BytesConv[CC[X] <: Traversable[X]](implicit bf: CanBuildFrom[_, Byte, CC[Byte]]) = new SeqSchema[CC[Byte]] {
@@ -100,6 +92,5 @@ object SeqSchema {
       xs.getBytes.take(xs.getLength).foreach { x => b += x }
       b.result()
     }
-    val mf: Manifest[SeqType] = implicitly
   }
 }

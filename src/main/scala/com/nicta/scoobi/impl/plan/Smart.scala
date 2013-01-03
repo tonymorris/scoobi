@@ -39,7 +39,7 @@ object Smart {
 
 
   /** GADT for distributed list computation graph. */
-  sealed abstract class DComp[A : Manifest : WireFormat, Sh <: Shape] {
+  sealed abstract class DComp[A : WireFormat, Sh <: Shape] {
 
     val id = Id.get
 
@@ -124,8 +124,8 @@ object Smart {
       n
     }
 
-    final def insert2[K : Manifest : WireFormat : Grouping,
-                V : Manifest : WireFormat]
+    final def insert2[K : WireFormat : Grouping,
+                V : WireFormat]
                 (ci: ConvertInfo, n: AST.Node[(K,V), Sh] with KVLike[K,V]):
                 AST.Node[(K,V), Sh] with KVLike[K,V] = {
       ci.astMap += ((this,n))
@@ -142,8 +142,8 @@ object Smart {
       }
     }
 
-    final def convert2[K : Manifest : WireFormat : Grouping,
-                 V : Manifest : WireFormat]
+    final def convert2[K : WireFormat : Grouping,
+                 V : WireFormat]
                  (ci: ConvertInfo): AST.Node[(K,V), Sh] with KVLike[K,V]  = {
       val maybeN: Option[AST.Node[_,_]] = ci.astMap.get(this)
       maybeN match {
@@ -155,12 +155,12 @@ object Smart {
 
     def convertNew(ci: ConvertInfo): AST.Node[A, Sh]
 
-    def convertNew2[K : Manifest : WireFormat : Grouping,
-                    V : Manifest : WireFormat]
+    def convertNew2[K : WireFormat : Grouping,
+                    V : WireFormat]
                     (ci: ConvertInfo): AST.Node[(K,V), Sh] with KVLike[K,V]
 
-    def convertParallelDo[B : Manifest : WireFormat,
-                          E : Manifest : WireFormat]
+    def convertParallelDo[B : WireFormat,
+                          E : WireFormat]
         (ci: ConvertInfo,
          pd: ParallelDo[A, B, E])
       : AST.Node[B, Arr]
@@ -169,7 +169,7 @@ object Smart {
 
   /** The Load node type specifies the creation of a DComp from some source other than another DComp.
     * A DataSource object specifies how the loading is performed. */
-  case class Load[A](source: DataSource[_, _, A])(implicit mA: Manifest[A], val wtA: WireFormat[A]) extends DComp[A, Arr] {
+  case class Load[A](source: DataSource[_, _, A])(implicit val wtA: WireFormat[A]) extends DComp[A, Arr] {
 
     override val toString = "Load" + id
 
@@ -187,15 +187,15 @@ object Smart {
       insert(ci, AST.Load())
     }
 
-    def convertNew2[K : Manifest : WireFormat : Grouping,
-                    V : Manifest : WireFormat]
+    def convertNew2[K : WireFormat : Grouping,
+                    V : WireFormat]
                     (ci: ConvertInfo): AST.Node[(K,V), Arr] with KVLike[K,V] = {
 
       insert2(ci, new AST.Load[(K,V)]() with KVLike[K,V] {
                     def mkTaggedIdentityMapper(tags: Set[Int]) = new TaggedIdentityMapper[K,V](tags)})
     }
 
-    def convertParallelDo[B : Manifest : WireFormat, E : Manifest : WireFormat]
+    def convertParallelDo[B : WireFormat, E : WireFormat]
         (ci: ConvertInfo,
          pd: ParallelDo[A, B, E])
       : AST.Node[B, Arr] = {
@@ -217,9 +217,9 @@ object Smart {
        dofn: EnvDoFn[A, B, E],
        groupBarrier: Boolean = false,
        fuseBarrier: Boolean = false)
-      (implicit val mA: Manifest[A], val wtA: WireFormat[A],
-                mB: Manifest[B], wtB: WireFormat[B],
-                val mE: Manifest[E], val wtE: WireFormat[E])
+      (implicit val wtA: WireFormat[A],
+                wtB: WireFormat[B],
+                val wtE: WireFormat[E])
     extends DComp[B, Arr] {
 
     override val toString = "ParallelDo" + id + (if (groupBarrier) "*" else "") + (if (fuseBarrier) "%" else "")
@@ -287,14 +287,14 @@ object Smart {
       }
 
       /* Create a new environment by forming a tuple from two seperate evironments.*/
-      def fuseEnv[F : Manifest : WireFormat, G : Manifest : WireFormat](fExp: DComp[F, Exp], gExp: DComp[G, Exp]): DComp[(F, G), Exp] =
+      def fuseEnv[F : WireFormat, G : WireFormat](fExp: DComp[F, Exp], gExp: DComp[G, Exp]): DComp[(F, G), Exp] =
         Op(fExp, gExp, (f: F, g: G) => (f, g))
 
-      def fuseParallelDos[X : Manifest : WireFormat,
-                          Y : Manifest : WireFormat,
-                          Z : Manifest : WireFormat,
-                          F : Manifest : WireFormat,
-                          G : Manifest : WireFormat]
+      def fuseParallelDos[X : WireFormat,
+                          Y : WireFormat,
+                          Z : WireFormat,
+                          F : WireFormat,
+                          G : WireFormat]
           (pd1: ParallelDo[X, Y, F],
            pd2: ParallelDo[Y, Z, G])
         : ParallelDo[X, Z, (F, G)] = {
@@ -305,8 +305,6 @@ object Smart {
           val fusedDoFn = fuseDoFn(dofn1, dofn2)
           val fusedEnv = fuseEnv(env1, env2)
 
-          implicit val mFG: Manifest[(F, G)] =
-            Manifest.classType(classOf[Tuple2[F,G]], implicitly[Manifest[F]], implicitly[Manifest[G]])
           implicit val wtFG: WireFormat[(F, G)] =
             WireFormat.Tuple2Fmt(implicitly[WireFormat[F]], implicitly[WireFormat[G]])
 
@@ -317,7 +315,7 @@ object Smart {
         case ParallelDo(_, _, _, _, false) => {
           val (inUpd, copiedUpd, _) = in.optFuseParDos(copied)
           val prev@ParallelDo(_, _, _, _, _) = inUpd
-          val pd = fuseParallelDos(prev, this)(prev.mA, prev.wtA, mA, wtA, mB, wtB, prev.mE, prev.wtE, mE, wtE)
+          val pd = fuseParallelDos(prev, this)(prev.wtA, wtA, wtB, prev.wtE, wtE)
           (pd, copiedUpd + (this -> pd), true)
         }
         case _ => justCopy(copied, (n: DComp[A, Arr], ct: CopyTable) => n.optFuseParDos(ct))
@@ -332,8 +330,8 @@ object Smart {
       in.convertParallelDo(ci, this)
     }
 
-    def convertNew2[K : Manifest : WireFormat : Grouping,
-                    V : Manifest : WireFormat](ci: ConvertInfo):
+    def convertNew2[K : WireFormat : Grouping,
+                    V : WireFormat](ci: ConvertInfo):
                     AST.Node[(K,V), Arr] with KVLike[K,V] = {
 
       if (ci.mscrs.exists(_.containsGbkReducer(this))) {
@@ -359,8 +357,8 @@ object Smart {
       }
     }
 
-    def convertParallelDo[C : Manifest : WireFormat,
-                          F : Manifest : WireFormat]
+    def convertParallelDo[C : WireFormat,
+                          F : WireFormat]
         (ci: ConvertInfo,
          pd: ParallelDo[B, C, F])
       : AST.Node[C, Arr] = {
@@ -376,8 +374,8 @@ object Smart {
     * key-value DComp by key. */
   case class GroupByKey[K, V]
       (in: DComp[(K, V), Arr])
-      (implicit mK: Manifest[K], wtK: WireFormat[K], val grpK: Grouping[K],
-                mV: Manifest[V], wtV: WireFormat[V])
+      (implicit wtK: WireFormat[K], val grpK: Grouping[K],
+                wtV: WireFormat[V])
 
     extends DComp[(K, Iterable[V]), Arr] {
 
@@ -424,24 +422,24 @@ object Smart {
       insert(ci, AST.GroupByKey(in.convert2(ci)))
     }
 
-    def convertAux[A: Manifest : WireFormat : Grouping,
-              B: Manifest : WireFormat]
+    def convertAux[A : WireFormat : Grouping,
+              B : WireFormat]
               (ci: ConvertInfo, d: DComp[(A, B), Arr]):
               AST.Node[(A, Iterable[B]), Arr] with KVLike[A, Iterable[B]] = {
          insert2(ci, new AST.GroupByKey[A,B](d.convert2(ci)) with KVLike[A, Iterable[B]] {
            def mkTaggedIdentityMapper(tags: Set[Int]) = new TaggedIdentityMapper[A,Iterable[B]](tags)})
       }
 
-    def convertNew2[K1 : Manifest : WireFormat : Grouping,
-                    V1 : Manifest : WireFormat]
+    def convertNew2[K1 : WireFormat : Grouping,
+                    V1 : WireFormat]
                     (ci: ConvertInfo): AST.Node[(K1,V1), Arr] with KVLike[K1,V1] = {
       convertAux(ci, in).asInstanceOf[AST.Node[(K1,V1), Arr] with KVLike[K1,V1]]
 
 
     }
 
-    override def convertParallelDo[B : Manifest : WireFormat,
-                                   E : Manifest : WireFormat]
+    override def convertParallelDo[B : WireFormat,
+                                   E : WireFormat]
         (ci: ConvertInfo,
          pd: ParallelDo[(K,Iterable[V]), B, E])
       : AST.Node[B, Arr] = {
@@ -459,8 +457,8 @@ object Smart {
 
   /** The Combine node type specifies the building of a DComp as a result of applying an associative
     * function to the values of an existing key-values DComp. */
-  case class Combine[K : Manifest : WireFormat : Grouping,
-                     V : Manifest : WireFormat]
+  case class Combine[K : WireFormat : Grouping,
+                     V : WireFormat]
       (in: DComp[(K, Iterable[V]), Arr],
        f: (V, V) => V)
     extends DComp[(K, V), Arr] {
@@ -539,8 +537,8 @@ object Smart {
     def convertNew(ci: ConvertInfo) = insert(ci, AST.Combiner(in.convert(ci), f))
 
     /* An almost exact copy of convertNew */
-    def convertNew2[K1 : Manifest : WireFormat : Grouping,
-                    V1 : Manifest : WireFormat]
+    def convertNew2[K1 : WireFormat : Grouping,
+                    V1 : WireFormat]
                     (ci: ConvertInfo): AST.Node[(K1,V1), Arr] with KVLike[K1,V1] = {
        val c: Combine[K1,V1] = this.asInstanceOf[Combine[K1,V1]]
 
@@ -549,8 +547,8 @@ object Smart {
 
     }
 
-    override def convertParallelDo[B : Manifest : WireFormat,
-                                   E : Manifest : WireFormat]
+    override def convertParallelDo[B : WireFormat,
+                                   E : WireFormat]
         (ci: ConvertInfo,
          pd: ParallelDo[(K,V), B, E])
       : AST.Node[B, Arr] = {
@@ -568,7 +566,7 @@ object Smart {
 
   /** The Flatten node type spcecifies the building of a DComp that contains all the elements from
     * one or more exsiting DLists of the same type. */
-  case class Flatten[A : Manifest : WireFormat](ins: List[DComp[A, Arr]]) extends DComp[A, Arr] {
+  case class Flatten[A : WireFormat](ins: List[DComp[A, Arr]]) extends DComp[A, Arr] {
 
     override val toString = "Flatten" + id
 
@@ -615,8 +613,8 @@ object Smart {
     // ~~~~~~~~~~
     def convertNew(ci: ConvertInfo) = insert(ci, AST.Flatten(ins.map(_.convert(ci))))
 
-    def convertNew2[K : Manifest : WireFormat : Grouping,
-                    V : Manifest : WireFormat]
+    def convertNew2[K : WireFormat : Grouping,
+                    V : WireFormat]
                     (ci: ConvertInfo): AST.Node[(K,V), Arr] with KVLike[K,V] = {
       val d: Flatten[(K,V)] = this.asInstanceOf[Flatten[(K,V)]]
       val ns: List[AST.Node[(K,V), Arr]] = d.ins.map(_.convert2[K,V](ci))
@@ -624,8 +622,8 @@ object Smart {
                       def mkTaggedIdentityMapper(tags: Set[Int]) = new TaggedIdentityMapper[K,V](tags)})
     }
 
-    def convertParallelDo[B : Manifest : WireFormat,
-                          E : Manifest : WireFormat]
+    def convertParallelDo[B : WireFormat,
+                          E : WireFormat]
         (ci: ConvertInfo,
          pd: ParallelDo[A, B, E])
       : AST.Node[B, Arr] = {
@@ -638,7 +636,7 @@ object Smart {
 
 
   /** The Materialise node type specifies the conversion of an Arr DComp to an Exp DComp. */
-  case class Materialise[A : Manifest : WireFormat](in: DComp[A, Arr]) extends DComp[Iterable[A], Exp] {
+  case class Materialise[A : WireFormat](in: DComp[A, Arr]) extends DComp[Iterable[A], Exp] {
 
     override val toString = "Materialise" + id
 
@@ -662,13 +660,13 @@ object Smart {
       insert(ci, node)
     }
 
-    def convertNew2[K : Manifest : WireFormat : Grouping,
-                    V : Manifest : WireFormat]
+    def convertNew2[K : WireFormat : Grouping,
+                    V : WireFormat]
                     (ci: ConvertInfo): AST.Node[(K,V), Exp] with KVLike[K,V] =
       sys.error("Materialise can not be in an input to a GroupByKey")
 
-    def convertParallelDo[B : Manifest : WireFormat,
-                          E : Manifest : WireFormat]
+    def convertParallelDo[B : WireFormat,
+                          E : WireFormat]
         (ci: ConvertInfo,
          pd: ParallelDo[Iterable[A], B, E])
       : AST.Node[B, Arr] = sys.error("Materialise can not be an input to ParallelDo")
@@ -677,9 +675,9 @@ object Smart {
 
   /** The Op node type specifies the building of Exp DComp by applying a function to the values
     * of two other Exp DComp nodes. */
-  case class Op[A : Manifest : WireFormat,
-                B : Manifest : WireFormat,
-                C : Manifest : WireFormat]
+  case class Op[A : WireFormat,
+                B : WireFormat,
+                C : WireFormat]
       (in1: DComp[A, Exp],
        in2: DComp[B, Exp],
        f: (A, B) => C)
@@ -712,13 +710,13 @@ object Smart {
       insert(ci, node)
     }
 
-    def convertNew2[K : Manifest : WireFormat : Grouping,
-                    V : Manifest : WireFormat]
+    def convertNew2[K : WireFormat : Grouping,
+                    V : WireFormat]
                     (ci: ConvertInfo): AST.Node[(K,V), Exp] with KVLike[K,V] =
       sys.error("Op can not be in an input to a GroupByKey")
 
-    def convertParallelDo[D : Manifest : WireFormat,
-                          E : Manifest : WireFormat]
+    def convertParallelDo[D : WireFormat,
+                          E : WireFormat]
         (ci: ConvertInfo,
          pd: ParallelDo[C, D, E])
       : AST.Node[D, Arr] = sys.error("Op can not be an input to ParallelDo")
@@ -726,7 +724,7 @@ object Smart {
 
 
   /** The Return node type specifies the building of a Exp DComp from an "ordinary" value. */
-  case class Return[A : Manifest : WireFormat](x: A) extends DComp[A, Exp] {
+  case class Return[A : WireFormat](x: A) extends DComp[A, Exp] {
 
     override val toString = "Return" + id
 
@@ -750,13 +748,13 @@ object Smart {
       insert(ci, node)
     }
 
-    def convertNew2[K : Manifest : WireFormat : Grouping,
-                    V : Manifest : WireFormat]
+    def convertNew2[K : WireFormat : Grouping,
+                    V : WireFormat]
                     (ci: ConvertInfo): AST.Node[(K,V), Exp] with KVLike[K,V] =
       sys.error("Return can not be in an input to a GroupByKey")
 
-    def convertParallelDo[B : Manifest : WireFormat,
-                          E : Manifest : WireFormat]
+    def convertParallelDo[B : WireFormat,
+                          E : WireFormat]
         (ci: ConvertInfo,
          pd: ParallelDo[A, B, E])
       : AST.Node[B, Arr] = sys.error("Return can not be an input to ParallelDo")

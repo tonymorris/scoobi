@@ -28,10 +28,10 @@ trait MapperLike[A, E, K, V] {
 /** A wrapper for a 'map' function tagged for a specific output channel. */
 abstract case class TaggedMapper[A, E, K, V]
     (tags: Set[Int])
-    (implicit mA: Manifest[A], wtA: WireFormat[A],
-              mE: Manifest[E], wtE: WireFormat[E],
-              val mK: Manifest[K], val wtK: WireFormat[K], val grpK: Grouping[K],
-              val mV: Manifest[V], val wtV: WireFormat[V]) {
+    (implicit wtA: WireFormat[A],
+              wtE: WireFormat[E],
+              val wtK: WireFormat[K], val grpK: Grouping[K],
+              val wtV: WireFormat[V]) {
 
   /** The actual 'map' function that will be used by Hadoop in the mapper task. */
   def setup(env: E)
@@ -43,10 +43,10 @@ abstract case class TaggedMapper[A, E, K, V]
 /** A TaggedMapper that is an identity mapper. */
 class TaggedIdentityMapper[K, V]
     (tags: Set[Int])
-    (implicit mK: Manifest[K], wtK: WireFormat[K], grpK: Grouping[K],
-              mV: Manifest[V], wtV: WireFormat[V],
-              mKV: Manifest[(K, V)], wtKV: WireFormat[(K, V)])
-  extends TaggedMapper[(K, V), Unit, K, V](tags)(mKV, wtKV, implicitly[Manifest[Unit]], implicitly[WireFormat[Unit]], mK, wtK, grpK, mV, wtV) {
+    (implicit wtK: WireFormat[K], grpK: Grouping[K],
+              wtV: WireFormat[V],
+              wtKV: WireFormat[(K, V)])
+  extends TaggedMapper[(K, V), Unit, K, V](tags)(wtKV, implicitly[WireFormat[Unit]], wtK, grpK, wtV) {
 
   /** Identity mapping */
   def setup(env: Unit) {}

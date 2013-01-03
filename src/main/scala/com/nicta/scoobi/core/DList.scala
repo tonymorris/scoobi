@@ -34,9 +34,6 @@ import io.seq.SeqInput
  */
 trait DList[A] {
 
-  /**Manifest typeclass constraint. */
-  implicit def m: Manifest[A]
-
   /**WireFormat typeclass constraint. */
   implicit def wf: WireFormat[A]
 
@@ -51,7 +48,7 @@ trait DList[A] {
   /**Apply a specified function to "chunks" of elements from the distributed list to produce
    * zero or more output elements. The resulting output elements from the many "chunks" form
    * a new distributed list. */
-  def parallelDo[B: Manifest : WireFormat, E: Manifest : WireFormat](env: DObject[E], dofn: EnvDoFn[A, B, E]): DList[B]
+  def parallelDo[B : WireFormat, E : WireFormat](env: DObject[E], dofn: EnvDoFn[A, B, E]): DList[B]
 
   /**Concatenate one or more distributed lists to this distributed list. */
   def ++(ins: DList[A]*): DList[A]
@@ -59,10 +56,8 @@ trait DList[A] {
   /**Group the values of a distributed list with key-value elements by key. */
   def groupByKey[K, V]
   (implicit ev: Smart.DComp[A, Arr] <:< Smart.DComp[(K, V), Arr],
-   mK: Manifest[K],
    wtK: WireFormat[K],
    grpK: Grouping[K],
-   mV: Manifest[V],
    wtV: WireFormat[V]): DList[(K, Iterable[V])]
 
   /**Apply an associative function to reduce the collection of values to a single value in a
@@ -70,10 +65,8 @@ trait DList[A] {
   def combine[K, V]
   (f: (V, V) => V)
   (implicit ev: Smart.DComp[A, Arr] <:< Smart.DComp[(K, Iterable[V]), Arr],
-   mK: Manifest[K],
    wtK: WireFormat[K],
    grpK: Grouping[K],
-   mV: Manifest[V],
    wtV: WireFormat[V]): DList[(K, V)]
 
   /**Turn a distributed list into a normal, non-distributed collection that can be accessed
@@ -88,9 +81,9 @@ trait DList[A] {
   // Derived functionality (return DLists).
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  def parallelDo[B: Manifest : WireFormat](dofn: DoFn[A, B]): DList[B] = parallelDo(UnitDObject, dofn)
+  def parallelDo[B : WireFormat](dofn: DoFn[A, B]): DList[B] = parallelDo(UnitDObject, dofn)
 
-  private def basicParallelDo[B: Manifest : WireFormat](proc: (A, Emitter[B]) => Unit): DList[B] = {
+  private def basicParallelDo[B : WireFormat](proc: (A, Emitter[B]) => Unit): DList[B] = {
     val dofn = new BasicDoFn[A, B] {
       def process(input: A, emitter: Emitter[B]) {
         proc(input, emitter)
@@ -102,7 +95,7 @@ trait DList[A] {
   /**For each element of the distributed list produce zero or more elements by
    * applying a specified function. The resulting collection of elements form a
    * new distributed list. */
-  def flatMap[B: Manifest : WireFormat](f: A => Iterable[B]): DList[B] =
+  def flatMap[B : WireFormat](f: A => Iterable[B]): DList[B] =
     basicParallelDo((input: A, emitter: Emitter[B]) => f(input).foreach {
       emitter.emit(_)
     })
@@ -110,7 +103,7 @@ trait DList[A] {
   /**For each element of the distributed list produce a new element by applying a
    * specified function. The resulting collection of elements form a new
    * distributed list. */
-  def map[B: Manifest : WireFormat](f: A => B): DList[B] =
+  def map[B : WireFormat](f: A => B): DList[B] =
     basicParallelDo((input: A, emitter: Emitter[B]) => emitter.emit(f(input)))
 
   /**Keep elements from the distributed list that pass a specified predicate function. */
@@ -124,7 +117,7 @@ trait DList[A] {
 
   /**Build a new DList by applying a partial function to all elements of this DList on
    * which the function is defined. */
-  def collect[B: Manifest : WireFormat](pf: PartialFunction[A, B]): DList[B] =
+  def collect[B : WireFormat](pf: PartialFunction[A, B]): DList[B] =
     basicParallelDo((input: A, emitter: Emitter[B]) => if (pf.isDefinedAt(input)) {
       emitter.emit(pf(input))
     })
@@ -136,7 +129,7 @@ trait DList[A] {
 
   /**Converts a distributed list of iterable values into to a distributed list in which
    * all the values are concatenated. */
-  def flatten[B](implicit ev: A <:< Iterable[B], mB: Manifest[B], wtB: WireFormat[B]): DList[B] =
+  def flatten[B](implicit ev: A <:< Iterable[B], wtB: WireFormat[B]): DList[B] =
     basicParallelDo((input: A, emitter: Emitter[B]) => input.foreach {
       emitter.emit(_)
     })
@@ -171,7 +164,7 @@ trait DList[A] {
   }
 
   /**Group the values of a distributed list according to some discriminator function. */
-  def groupBy[K: Manifest : WireFormat : Grouping](f: A => K): DList[(K, Iterable[A])] =
+  def groupBy[K : WireFormat : Grouping](f: A => K): DList[(K, Iterable[A])] =
     map(x => (f(x), x)).groupByKey
 
   /** Group the values of a distributed list with key-value elements by key. And explicitly
@@ -179,9 +172,7 @@ trait DList[A] {
     * secondary sorts, or groupings with strange logic (like making sure None's / nulls are
     * sprayed across all reducers. */
   def groupByKeyWith[K, V](grpK: Grouping[K])(implicit ev: Smart.DComp[A, Arr] <:< Smart.DComp[(K, V), Arr],
-    mK: Manifest[K],
     wtK: WireFormat[K],
-    mV: Manifest[V],
     wtV: WireFormat[V]): DList[(K, Iterable[V])] = {
     implicit def grping = grpK
     groupByKey
@@ -189,31 +180,27 @@ trait DList[A] {
 
   /** Group the value of a distributed list according to some discriminator function
     * and some grouping function. */
-  def groupWith[K](f: A => K)(grpK: Grouping[K])(implicit mK: Manifest[K], wtK: WireFormat[K]): DList[(K, Iterable[A])] = {
+  def groupWith[K](f: A => K)(grpK: Grouping[K])(implicit wtK: WireFormat[K]): DList[(K, Iterable[A])] = {
     implicit def grping = grpK
     map(x => (f(x), x)).groupByKey
   }
 
   /**Create a new distributed list that is keyed based on a specified function. */
-  def by[K: Manifest : WireFormat](kf: A => K): DList[(K, A)] = map {
+  def by[K : WireFormat](kf: A => K): DList[(K, A)] = map {
     x => (kf(x), x)
   }
 
   /**Create a distributed list containing just the keys of a key-value distributed list. */
   def keys[K, V]
   (implicit ev: A <:< (K, V),
-   mK: Manifest[K],
    wtK: WireFormat[K],
-   mV: Manifest[V],
    wtV: WireFormat[V])
   : DList[K] = map(ev(_)._1)
 
   /**Create a distributed list containing just the values of a key-value distributed list. */
   def values[K, V]
   (implicit ev: A <:< (K, V),
-   mK: Manifest[K],
    wtK: WireFormat[K],
-   mV: Manifest[V],
    wtV: WireFormat[V])
   : DList[V] = map(ev(_)._2)
 
@@ -283,36 +270,36 @@ trait DList[A] {
 object DList {
 
   /** Create a distributed list with given elements. */
-  def apply[A : Manifest : WireFormat](elems: A*): DList[A] = SeqInput.fromSeq(elems)
+  def apply[A : WireFormat](elems: A*): DList[A] = SeqInput.fromSeq(elems)
 
   /** Create a distributed list of Ints from a Range. */
   def apply(range: Range): DList[Int] = SeqInput.fromSeq(range)
 
   /** Create a distributed list from a data source. */
-  def fromSource[K, V, A : Manifest : WireFormat](source: DataSource[K, V, A]): DList[A] =
+  def fromSource[K, V, A : WireFormat](source: DataSource[K, V, A]): DList[A] =
     new DListImpl(source)
 
   /** Concatenate all distributed lists into a single distributed list. */
   @deprecated("Use the DList ++ method instead.", "0.7.0")
-  def concat[A : Manifest : WireFormat](xs: DList[A], xss: List[DList[A]]): DList[A] =
+  def concat[A : WireFormat](xs: DList[A], xss: List[DList[A]]): DList[A] =
     xs ++ (xss: _*)
 
   /** Concatenate all distributed lists into a single distributed list. */
   @deprecated("Use the DList ++ method instead.", "0.7.0")
-  def concat[A : Manifest : WireFormat](xs: DList[A], xss: DList[A]*): DList[A] = concat(xs, xss.toList)
+  def concat[A : WireFormat](xs: DList[A], xss: DList[A]*): DList[A] = concat(xs, xss.toList)
 
   /** Create a distributed list containing values of a given function over a range of
    * integer values starting from 0. */
-  def tabulate[A : Manifest : WireFormat](n: Int)(f: Int => A): DList[A] =
+  def tabulate[A : WireFormat](n: Int)(f: Int => A): DList[A] =
     FunctionInput.fromFunction(n)(f)
 
   /** Create a DList with the same element repeated n times. */
-  def fill[A : Manifest : WireFormat](n: Int)(a: =>A): DList[A] =
+  def fill[A : WireFormat](n: Int)(a: =>A): DList[A] =
     DList(Seq.fill(n)(a):_*)
 
   /** Pimping from generic collection types (i.e. Seq) to a Distributed List */
-  implicit def traversableToDList[A : Manifest : WireFormat](traversable: Traversable[A]) = new TraversableToDList[A](traversable)
-  class TraversableToDList[A : Manifest : WireFormat](traversable: Traversable[A]) {
+  implicit def traversableToDList[A : WireFormat](traversable: Traversable[A]) = new TraversableToDList[A](traversable)
+  class TraversableToDList[A : WireFormat](traversable: Traversable[A]) {
     def toDList: DList[A] = DList.apply(traversable.toSeq:_*)
   }
 }

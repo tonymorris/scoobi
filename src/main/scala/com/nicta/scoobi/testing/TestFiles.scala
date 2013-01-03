@@ -95,13 +95,13 @@ object TestFiles extends TestFiles
 import TestFiles._
 
 class InputTestFile[S](ls: Seq[String], mapping: String => S)
-                      (implicit configuration: ScoobiConfiguration, m: Manifest[S], w: WireFormat[S]) {
+                      (implicit configuration: ScoobiConfiguration, w: WireFormat[S]) {
 
   lazy val file = createTempFile("test.input")
 
   def inputLines = fromTextFile(TempFiles.writeLines(file, ls, isRemote))
-  def map[T : Manifest : WireFormat](f: S => T) = new InputTestFile(ls, f compose mapping)
-  def collect[T : Manifest : WireFormat](f: PartialFunction[S, T]) = new InputTestFile(ls, f compose mapping)
+  def map[T : WireFormat](f: S => T) = new InputTestFile(ls, f compose mapping)
+  def collect[T : WireFormat](f: PartialFunction[S, T]) = new InputTestFile(ls, f compose mapping)
   def lines: DList[S] = inputLines.map(mapping)
 }
 
@@ -112,7 +112,7 @@ case class InputStringTestFile(ls: Seq[String])
 }
 
 case class OutputTestFile[T](list: DList[T])
-                            (implicit configuration: ScoobiConfiguration, m: Manifest[T], w: WireFormat[T]) {
+                            (implicit configuration: ScoobiConfiguration, w: WireFormat[T]) {
 
   lazy val outputDir  = TestFiles.createTempDir("test.output")
   lazy val outputPath = TempFiles.path(outputDir, isRemote)

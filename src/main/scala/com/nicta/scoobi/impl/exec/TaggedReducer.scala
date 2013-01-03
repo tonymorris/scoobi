@@ -28,10 +28,10 @@ trait ReducerLike[K, V, B, E] {
 /** A wrapper for a 'reduce' function tagged for a specific output channel. */
 abstract case class TaggedReducer[K, V, B, E]
     (tag: Int)
-    (implicit mK: Manifest[K], wtK: WireFormat[K], grpK: Grouping[K],
-              mV: Manifest[V], wtV: WireFormat[V],
-              val mB: Manifest[B], val wtB: WireFormat[B],
-              mE: Manifest[E], wtE: WireFormat[E]) {
+    (implicit wtK: WireFormat[K], grpK: Grouping[K],
+              wtV: WireFormat[V],
+              val wtB: WireFormat[B],
+              wtE: WireFormat[E]) {
 
   /** The actual 'reduce' function that will be by Hadoop in the reducer task. */
   def setup(env: E)
@@ -40,11 +40,11 @@ abstract case class TaggedReducer[K, V, B, E]
 }
 
 /** A TaggedReducer that is an identity reducer. */
-class TaggedIdentityReducer[B : Manifest : WireFormat](tag: Int)
-  extends TaggedReducer[Int, B, B, Unit](tag)(implicitly[Manifest[Int]], implicitly[WireFormat[Int]], implicitly[Grouping[Int]],
-                                              implicitly[Manifest[B]], implicitly[WireFormat[B]],
-                                              implicitly[Manifest[B]], implicitly[WireFormat[B]],
-                                              implicitly[Manifest[Unit]], implicitly[WireFormat[Unit]]) {
+class TaggedIdentityReducer[B : WireFormat](tag: Int)
+  extends TaggedReducer[Int, B, B, Unit](tag)(implicitly[WireFormat[Int]], implicitly[Grouping[Int]],
+                                              implicitly[WireFormat[B]],
+                                              implicitly[WireFormat[B]],
+                                              implicitly[WireFormat[Unit]]) {
 
   /** Identity reducing - ignore the key. */
   def setup(env: Unit) {}

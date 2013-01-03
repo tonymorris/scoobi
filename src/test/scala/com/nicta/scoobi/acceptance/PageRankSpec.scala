@@ -47,10 +47,10 @@ class PageRankSpec extends NictaSimpleJobs {
 object PageRank {
   val Node = """^(\d+): (.*)$""".r
 
-  def initialise[K : Manifest : WireFormat](input: DList[(K, Seq[K])]) =
+  def initialise[K : WireFormat](input: DList[(K, Seq[K])]) =
     input map { case (url, links) => (url, (1f, 0f, links)) }
 
-  def update[K : Manifest : WireFormat : Grouping](prev: DList[(K, (Float, Float, Seq[K]))], d: Float) = {
+  def update[K : WireFormat : Grouping](prev: DList[(K, (Float, Float, Seq[K]))], d: Float) = {
     val outbound = prev flatMap { case (url, (pr, _, links)) => links.map((_, pr / links.size)) }
 
     (prev coGroup outbound) map { case (url, (prev_data, outbound_mass)) =>

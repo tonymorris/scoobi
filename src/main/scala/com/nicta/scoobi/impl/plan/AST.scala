@@ -28,7 +28,7 @@ object AST {
   object RollingInt extends UniqueInt
 
   /** Intermediate representation - closer aligned to actual MSCR contents. */
-  sealed abstract class Node[A : Manifest : WireFormat, Sh <: Shape] {
+  sealed abstract class Node[A : WireFormat, Sh <: Shape] {
     val id = Id.get
 
     def mkStraightTaggedIdentityMapper(tags: Set[Int]): TaggedMapper[A, Unit, Int, A] =
@@ -47,9 +47,9 @@ object AST {
 
 
   /** Input channel mapper that is not hooked up to a GBK. */
-  case class Mapper[A : Manifest : WireFormat,
-                    B : Manifest : WireFormat,
-                    E : Manifest : WireFormat]
+  case class Mapper[A : WireFormat,
+                    B : WireFormat,
+                    E : WireFormat]
       (in: Node[A, Arr],
        env: Node[E, Exp],
        dofn: EnvDoFn[A, B, E])
@@ -80,10 +80,10 @@ object AST {
 
 
   /** Input channel mapper that is hooked up to a GBK. */
-  case class GbkMapper[A : Manifest : WireFormat,
-                       K : Manifest : WireFormat : Grouping,
-                       V : Manifest : WireFormat,
-                       E : Manifest : WireFormat]
+  case class GbkMapper[A : WireFormat,
+                       K : WireFormat : Grouping,
+                       V : WireFormat,
+                       E : WireFormat]
       (in: Node[A, Arr],
        env: Node[E, Exp],
        dofn: EnvDoFn[A, (K, V), E])
@@ -96,10 +96,10 @@ object AST {
     }
 
     def mkTaggedReducer(tag: Int): TaggedReducer[K, V, (K, V), Unit] =
-      new TaggedReducer(tag)(implicitly[Manifest[K]], implicitly[WireFormat[K]], implicitly[Grouping[K]],
-                             implicitly[Manifest[V]], implicitly[WireFormat[V]],
-                             implicitly[Manifest[(K,V)]], implicitly[WireFormat[(K,V)]],
-                             implicitly[Manifest[Unit]], implicitly[WireFormat[Unit]]) {
+      new TaggedReducer(tag)(implicitly[WireFormat[K]], implicitly[Grouping[K]],
+                             implicitly[WireFormat[V]],
+                             implicitly[WireFormat[(K,V)]],
+                             implicitly[WireFormat[Unit]]) {
         def setup(env: Unit) {}
         def reduce(env: Unit, key: K, values: Iterable[V], emitter: Emitter[(K, V)]) {
           values.foreach { (v: V) => emitter.emit((key, v)) }
@@ -117,16 +117,16 @@ object AST {
   case class Combiner[K, V]
       (in: Node[(K, Iterable[V]), Arr],
        f: (V, V) => V)
-      (implicit mK:  Manifest[K], wtK: WireFormat[K], grpK: Grouping[K],
-                mV:  Manifest[V], wtV: WireFormat[V],
-                mKV: Manifest[(K, V)], wtKV: WireFormat[(K, V)])
+      (implicit wtK: WireFormat[K], grpK: Grouping[K],
+                wtV: WireFormat[V],
+                wtKV: WireFormat[(K, V)])
     extends Node[(K, V), Arr] with CombinerLike[V] with ReducerLike[K, V, (K, V), Unit] {
 
     def mkTaggedCombiner(tag: Int) = new TaggedCombiner[V](tag) {
       def combine(x: V, y: V): V = f(x, y)
     }
 
-    def mkTaggedReducer(tag: Int) = new TaggedReducer[K, V, (K, V), Unit](tag)(mK, wtK, grpK, mV, wtV, mKV, wtKV, implicitly[Manifest[Unit]], implicitly[WireFormat[Unit]]) {
+    def mkTaggedReducer(tag: Int) = new TaggedReducer[K, V, (K, V), Unit](tag)(wtK, grpK, wtV, wtKV, implicitly[WireFormat[Unit]]) {
       def setup(env: Unit) {}
       def reduce(env: Unit, key: K, values: Iterable[V], emitter: Emitter[(K, V)]) = {
         emitter.emit((key, values.reduce(f)))
@@ -137,8 +137,8 @@ object AST {
     /** Produce a TaggedReducer using this combiner function and an additional reducer function. */
     def mkTaggedReducerWithCombiner[B, E]
         (tag: Int, dofn: EnvDoFn[(K, V), B, E])
-        (implicit mB: Manifest[B], wtB: WireFormat[B], mE: Manifest[E], wtE: WireFormat[E]) =
-      new TaggedReducer[K, V, B, E](tag)(mK, wtK, grpK, mV, wtV, mB, wtB, mE, wtE) {
+        (implicit wtB: WireFormat[B], wtE: WireFormat[E]) =
+      new TaggedReducer[K, V, B, E](tag)(wtK, grpK, wtV, wtB, wtE) {
         def setup(env: E) { dofn.setup(env) }
         def reduce(env: E, key: K, values: Iterable[V], emitter: Emitter[B]) {
           dofn.process(env, (key, values.reduce(f)), emitter)
@@ -153,10 +153,10 @@ object AST {
 
 
   /** GbkReducer - a reduce (i.e. ParallelDo) that follows a GroupByKey (i.e. no Combiner). */
-  case class GbkReducer[K : Manifest : WireFormat : Grouping,
-                        V : Manifest : WireFormat,
-                        B : Manifest : WireFormat,
-                        E : Manifest : WireFormat]
+  case class GbkReducer[K : WireFormat : Grouping,
+                        V : WireFormat,
+                        B : WireFormat,
+                        E : WireFormat]
       (in: Node[(K, Iterable[V]), Arr],
        env: Node[E, Exp],
        dofn: EnvDoFn[((K, Iterable[V])), B, E])
@@ -177,10 +177,10 @@ object AST {
 
 
   /** Reducer - a reduce (i.e. FlatMap) that follows a Combiner. */
-  case class Reducer[K : Manifest : WireFormat : Grouping,
-                     V : Manifest : WireFormat,
-                     B : Manifest : WireFormat,
-                     E : Manifest : WireFormat]
+  case class Reducer[K : WireFormat : Grouping,
+                     V : WireFormat,
+                     B : WireFormat,
+                     E : WireFormat]
       (in: Node[(K, V), Arr],
        env: Node[E, Exp],
        dofn: EnvDoFn[(K, V), B, E])
@@ -199,7 +199,7 @@ object AST {
 
 
   /** Usual Load node. */
-  case class Load[A : Manifest : WireFormat]() extends Node[A, Arr] with ReducerLike[Int, A, A, Unit] {
+  case class Load[A : WireFormat]() extends Node[A, Arr] with ReducerLike[Int, A, A, Unit] {
     override def toString = "Load" + id
 
     def mkTaggedReducer(tag: Int): TaggedReducer[Int, A, A, Unit] = new TaggedIdentityReducer(tag)
@@ -208,7 +208,7 @@ object AST {
 
 
   /** Usual Flatten node. */
-  case class Flatten[A : Manifest : WireFormat](ins: List[Node[A, Arr]]) extends Node[A, Arr] with ReducerLike[Int, A, A, Unit] {
+  case class Flatten[A : WireFormat](ins: List[Node[A, Arr]]) extends Node[A, Arr] with ReducerLike[Int, A, A, Unit] {
     override def toString = "Flatten" + id
 
     def mkTaggedReducer(tag: Int): TaggedReducer[Int, A, A, Unit] = new TaggedIdentityReducer(tag)
@@ -218,8 +218,8 @@ object AST {
 
 
   /** Usual GBK node. */
-  case class GroupByKey[K : Manifest : WireFormat : Grouping,
-                        V : Manifest : WireFormat]
+  case class GroupByKey[K : WireFormat : Grouping,
+                        V : WireFormat]
       (in: Node[(K, V), Arr])
     extends Node[(K, Iterable[V]), Arr] with ReducerLike[K, V, (K, Iterable[V]), Unit] {
 
@@ -238,7 +238,7 @@ object AST {
 
 
   /** */
-  case class Materialise[A : Manifest : WireFormat](in : Node[A, Arr]) extends Node[Iterable[A], Exp] {
+  case class Materialise[A : WireFormat](in : Node[A, Arr]) extends Node[Iterable[A], Exp] {
 
 
     override def toString = "Materialise" + id
@@ -248,9 +248,9 @@ object AST {
 
 
   /** */
-  case class Op[A : Manifest : WireFormat,
-                B : Manifest : WireFormat,
-                C : Manifest : WireFormat]
+  case class Op[A : WireFormat,
+                B : WireFormat,
+                C : WireFormat]
       (in1: Node[A, Exp],
        in2: Node[B, Exp],
        f: (A, B) => C)
@@ -264,7 +264,7 @@ object AST {
 
 
   /** */
-  case class Return[A : Manifest : WireFormat](x: A) extends Node[A, Exp] {
+  case class Return[A : WireFormat](x: A) extends Node[A, Exp] {
 
 
     override def toString = "Return" + id

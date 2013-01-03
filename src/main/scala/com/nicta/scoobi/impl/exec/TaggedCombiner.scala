@@ -28,7 +28,7 @@ trait CombinerLike[V] {
 /** A wrapper for a 'combine' function tagged for a specific output channel. */
 abstract class TaggedCombiner[V]
     (val tag: Int)
-    (implicit val mV: Manifest[V], val wtV: WireFormat[V]) {
+    (implicit val wtV: WireFormat[V]) {
 
   /** The actual 'combine' function that will be called by Hadoop at the
     * completion of the mapping phase. */

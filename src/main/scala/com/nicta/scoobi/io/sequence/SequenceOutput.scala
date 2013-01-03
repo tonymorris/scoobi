@@ -38,7 +38,7 @@ object SequenceOutput {
     * to disk as the "key" component in a Sequence File. */
   def convertKeyToSequenceFile[K](dl: DList[K], path: String, overwrite: Boolean = false)(implicit convK: SeqSchema[K]): DListPersister[K] = {
 
-    val keyClass = convK.mf.erasure.asInstanceOf[Class[convK.SeqType]]
+    val keyClass: Class[convK.SeqType] = error("convK.mf.erasure.asInstanceOf[Class[convK.SeqType]]")
     val valueClass = classOf[NullWritable]
 
     val converter = new OutputConverter[convK.SeqType, NullWritable, K] {
@@ -54,7 +54,7 @@ object SequenceOutput {
   def convertValueToSequenceFile[V](dl: DList[V], path: String, overwrite: Boolean = false)(implicit convV: SeqSchema[V]): DListPersister[V] = {
 
     val keyClass = classOf[NullWritable]
-    val valueClass = convV.mf.erasure.asInstanceOf[Class[convV.SeqType]]
+    val valueClass: Class[convV.SeqType] = error("convV.mf.erasure.asInstanceOf[Class[convV.SeqType]]")
 
     val converter = new OutputConverter[NullWritable, convV.SeqType, V] {
       def toKeyValue(v: V) = (NullWritable.get, convV.toWritable(v))
@@ -68,8 +68,8 @@ object SequenceOutput {
     * to disk as "key-values" in a Sequence File. */
   def convertToSequenceFile[K, V](dl: DList[(K, V)], path: String, overwrite: Boolean = false)(implicit convK: SeqSchema[K], convV: SeqSchema[V]): DListPersister[(K, V)] = {
 
-    val keyClass = convK.mf.erasure.asInstanceOf[Class[convK.SeqType]]
-    val valueClass = convV.mf.erasure.asInstanceOf[Class[convV.SeqType]]
+    val keyClass: Class[convK.SeqType] = error("convK.mf.erasure.asInstanceOf[Class[convK.SeqType]]")
+    val valueClass: Class[convV.SeqType] = error("convV.mf.erasure.asInstanceOf[Class[convV.SeqType]]")
 
     val converter = new OutputConverter[convK.SeqType, convV.SeqType, (K, V)] {
       def toKeyValue(kv: (K, V)) = (convK.toWritable(kv._1), convV.toWritable(kv._2))
@@ -80,10 +80,10 @@ object SequenceOutput {
 
 
   /** Specify a distributed list to be persistent by storing it to disk as a Sequence File. */
-  def toSequenceFile[K <: Writable : Manifest, V <: Writable : Manifest](dl: DList[(K, V)], path: String, overwrite: Boolean = false): DListPersister[(K, V)] = {
+  def toSequenceFile[K <: Writable, V <: Writable](dl: DList[(K, V)], path: String, overwrite: Boolean = false): DListPersister[(K, V)] = {
 
-    val keyClass = implicitly[Manifest[K]].erasure.asInstanceOf[Class[K]]
-    val valueClass = implicitly[Manifest[V]].erasure.asInstanceOf[Class[V]]
+    val keyClass: Class[K] = error("implicitly[Manifest[K]].erasure.asInstanceOf[Class[K]]")
+    val valueClass: Class[V] = error("implicitly[Manifest[V]].erasure.asInstanceOf[Class[V]]")
 
     val converter = new OutputConverter[K, V, (K, V)] {
       def toKeyValue(kv: (K, V)) = (kv._1, kv._2)

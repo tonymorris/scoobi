@@ -141,12 +141,12 @@ object AvroSchema {
   }
 
   /* AvroSchema type class instance for Arrays. */
-  implicit def ArraySchema[T](implicit mf: Manifest[T], sch: AvroSchema[T]) = new AvroSchema[Array[T]] {
+  implicit def ArraySchema[T](implicit sch: AvroSchema[T]) = new AvroSchema[Array[T]] {
     type AvroType = GenericData.Array[sch.AvroType]
     val schema: Schema = Schema.createArray(sch.schema)
 
     def fromAvro(array: GenericData.Array[sch.AvroType]): Array[T] =
-      array.iterator.map(v => sch.fromAvro(v)).toArray
+      error("array.iterator.map(v => sch.fromAvro(v)).toArray")
 
     def toAvro(xs: Array[T]): GenericData.Array[sch.AvroType] =
       new GenericData.Array[sch.AvroType](schema, xs.map(sch.toAvro(_)).toIterable)

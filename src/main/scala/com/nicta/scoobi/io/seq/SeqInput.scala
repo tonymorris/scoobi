@@ -47,7 +47,7 @@ object SeqInput {
   lazy val logger = LogFactory.getLog("scoobi.SeqInput")
 
   /** Create a distributed list of a specified length whose elements are coming from a scala collection */
-  def fromSeq[A : Manifest : WireFormat](seq: Seq[A]): DList[A] = {
+  def fromSeq[A : WireFormat](seq: Seq[A]): DList[A] = {
     val source = new DataSource[NullWritable, Array[Byte], Array[Byte]] {
       val inputFormat = classOf[SeqInputFormat[Array[Byte]]]
       def inputCheck(implicit sc: ScoobiConfiguration) {}

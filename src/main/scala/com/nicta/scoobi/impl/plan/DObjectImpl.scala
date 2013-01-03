@@ -20,9 +20,8 @@ package plan
 import core._
 
 /** A wrapper around an object that is part of the graph of a distributed computation.*/
-class DObjectImpl[A : Manifest : WireFormat] private[scoobi] (comp: Smart.DComp[A, Exp]) extends DObject[A] {
+class DObjectImpl[A : WireFormat] private[scoobi] (comp: Smart.DComp[A, Exp]) extends DObject[A] {
 
-  val m = implicitly[Manifest[A]]
   val wf = implicitly[WireFormat[A]]
 
   private[scoobi]
@@ -31,10 +30,10 @@ class DObjectImpl[A : Manifest : WireFormat] private[scoobi] (comp: Smart.DComp[
   private[scoobi]
   def getComp: Smart.DComp[A, Exp] = comp
 
-  def map[B : Manifest : WireFormat](f: A => B): DObject[B] =
+  def map[B : WireFormat](f: A => B): DObject[B] =
     new DObjectImpl(Smart.Op(comp, Smart.Return(()), (a: A, _: Unit) => f(a)))
 
-  def join[B : Manifest : WireFormat](list: DList[B]): DList[(A, B)] = {
+  def join[B : WireFormat](list: DList[B]): DList[(A, B)] = {
     val dofn = new EnvDoFn[B, (A, B), A] {
       def setup(env: A) {}
       def process(env: A, input: B, emitter: Emitter[(A, B)]) { emitter.emit((env, input)) }
@@ -52,6 +51,6 @@ object UnitDObject extends DObjectImpl(())
 object DObjectImpl {
 
   /* Implicit conversions from tuples of DObjects to DObject tuples. */
-  def tupled2[T1 : Manifest : WireFormat, T2 : Manifest : WireFormat] (tup: (DObject[T1], DObject[T2])): DObject[(T1, T2)] =
+  def tupled2[T1 : WireFormat, T2 : WireFormat] (tup: (DObject[T1], DObject[T2])): DObject[(T1, T2)] =
       new DObjectImpl(Smart.Op(tup._1.getComp, tup._2.getComp, (a: T1, b: T2) => (a, b)))
 }
