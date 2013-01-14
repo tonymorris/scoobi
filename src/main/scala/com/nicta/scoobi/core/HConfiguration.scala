@@ -2,18 +2,19 @@ package com.nicta.scoobi
 package core
 
 import scalaz._, Scalaz._, Free._
+import org.apache.hadoop.conf.Configuration
 
 sealed trait HConfiguration[+A] {
   def map[B](f: A => B): HConfiguration[B] =
     this match {
-      case Set(k, v, q) => Set(k, v, f compose q)
+      case Set(k, v, q) => Set(k, v, f(q))
       case Get(k, q) => Get(k, f compose q)
-      case Unset(k, q) => Unset(k, f compose q)
+      case Unset(k, q) => Unset(k, f(q))
     }
 }
-private case class Set[A](k: String, v: String, q: Option[String] => A) extends HConfiguration[A]
+private case class Set[A](k: String, v: String, q: A) extends HConfiguration[A]
 private case class Get[A](k: String, q: Option[String] => A) extends HConfiguration[A]
-private case class Unset[A](k: String, q: Option[String] => A) extends HConfiguration[A]
+private case class Unset[A](k: String, q: A) extends HConfiguration[A]
 
 object HConfiguration extends HConfigurationInstances
 
@@ -40,6 +41,58 @@ sealed trait HConfigurationFree[+A] {
     , HConfigurationFreeResumeTerm(_)
     )
 
+  def hom[G[+_]](f: HConfiguration ~> G)(implicit G: Functor[G]): Free[G, A] =
+    free mapSuspension f
+
+  def bounce[AA >: A](f: HConfiguration[HConfigurationFree[A]] => HConfigurationFree[AA]): HConfigurationFree[AA] =
+    HConfigurationFree(free.bounce(x => f(x map (HConfigurationFree(_))).free))
+
+  def go[AA >: A](f: HConfiguration[HConfigurationFree[AA]] => HConfigurationFree[AA]): AA =
+    free.go[AA](x => f(x map (HConfigurationFree(_))).free)
+
+  def goState[B, AA >: A](b: B)(f: (B, HConfiguration[HConfigurationFree[AA]]) => (B, HConfigurationFree[AA])): (B, AA) = {
+    val ff: (B, HConfiguration[Free[HConfiguration, AA]]) => (B, Free[HConfiguration, AA]) =
+       (b, x) => {
+         val (bb, h) = f(b, x map (HConfigurationFree(_)))
+         (bb, h.free)
+       }
+
+    free.foldRun[B, AA](b)(ff)
+  }
+
+  def zip[B](t: HConfigurationFree[B]): HConfigurationFree[(A, B)] =
+    HConfigurationFree(free.zipWith(t.free, (a, b: B) => (a, b)))
+
+  def zipWith[B, C](t: HConfigurationFree[B], f: (A, B) => C): HConfigurationFree[C] =
+    HConfigurationFree(free.zipWith(t.free, f))
+
+  def zap[G[+_], B](fs: Cofree[G, A => B])(implicit G: Functor[G], d: Zap[HConfiguration, G]): B =
+    free zap fs
+
+  def zapWith[G[+_], B, C](bs: Cofree[G, B])(f: (A, B) => C)(implicit G: Functor[G], d: Zap[HConfiguration, G]): C =
+     free.zapWith(bs)(f)
+
+  // CAUTION
+  // Unsafe operation. Run once only.
+  @annotation.tailrec
+  final def run(c: Configuration): A =
+    resume match {
+      case HConfigurationFreeResumeCont(Set(k, v, q)) =>
+        HConfigurationFree({
+          c set (k, v)
+          q
+        }) run c
+      case HConfigurationFreeResumeCont(Get(k, q)) =>
+        HConfigurationFree(q(Option(c get k))) run c
+      case HConfigurationFreeResumeCont(Unset(k, q)) =>
+        HConfigurationFree({
+          c unset k
+          q
+        }) run c
+      case HConfigurationFreeResumeTerm(a) =>
+        a
+    }
+
 }
 
 object HConfigurationFree extends HConfigurationFreeFunctions {
@@ -50,14 +103,14 @@ object HConfigurationFree extends HConfigurationFreeFunctions {
 }
 
 trait HConfigurationFreeFunctions {
-  def set[A](k: String, v: String): HConfigurationFree[Option[String]] =
-    HConfigurationFree(Suspend(Set(k, v, Return(_))))
+  def set[A](k: String, v: String): HConfigurationFree[Unit] =
+    HConfigurationFree(Suspend(Set(k, v, Return(()))))
 
   def get[A](k: String): HConfigurationFree[Option[String]] =
     HConfigurationFree(Suspend(Get(k, Return(_))))
 
-  def unset[A](k: String): HConfigurationFree[Option[String]] =
-    HConfigurationFree(Suspend(Unset(k, Return(_))))
+  def unset[A](k: String): HConfigurationFree[Unit] =
+    HConfigurationFree(Suspend(Unset(k, Return(()))))
 }
 
 sealed trait HConfigurationFreeResume[+A] {
