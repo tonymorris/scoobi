@@ -14,7 +14,7 @@ libraryDependencies ++= Seq(
   "org.apache.hadoop" % "hadoop-client" % "2.0.0-mr1-cdh4.0.1",
   "org.apache.hadoop" % "hadoop-core" % "2.0.0-mr1-cdh4.0.1",
   "com.thoughtworks.xstream" % "xstream" % "1.4.3" intransitive(),
-  "org.scalaz" %% "scalaz-core" % "7.0.0-M3",
+  "org.scalaz" %% "scalaz-core" % "7.0.0-M7",
   "org.specs2" %% "specs2" % "1.12.3" % "optional",
   "com.chuusai" %% "shapeless" % "1.2.2",
   "org.specs2" % "classycle" % "1.4.1"% "test",
