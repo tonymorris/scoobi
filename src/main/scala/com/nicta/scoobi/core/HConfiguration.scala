@@ -11,6 +11,7 @@ import HConfiguration.{Set, Get, Unset}
  *
  * @see [[ftp://ftp.math.mcgill.ca/barr/pdffiles/coeqft.pdf Barr, Michael. "Coequalizers and free triples." Mathematische Zeitschrift 116.4 (1970): 307-322.]]
  * @see [[http://days2012.scala-lang.org/sites/days2012/files/bjarnason_trampolines.pdf Stackless Scala With Free Monads, Rúnar Óli Bjarnason ]]
+ *
  * @see [[com.nicta.scoobi.core.HConfigurationFree]]
  * @since 0.7.0
  * @author Tony Morris
@@ -46,6 +47,11 @@ trait HConfigurationInstances {
  *
  * @see [[ftp://ftp.math.mcgill.ca/barr/pdffiles/coeqft.pdf Barr, Michael. "Coequalizers and free triples." Mathematische Zeitschrift 116.4 (1970): 307-322.]]
  * @see [[http://days2012.scala-lang.org/sites/days2012/files/bjarnason_trampolines.pdf Stackless Scala With Free Monads, Rúnar Óli Bjarnason ]]
+ *
+ * @example {{{
+ *   val x = 7
+ *   val y = 8
+ * }}}
  * @see [[com.nicta.scoobi.core.HConfiguration]]
  * @since 0.7.0
  * @author Tony Morris
@@ -198,3 +204,55 @@ sealed trait HConfigurationFreeResume[+A] {
 }
 private case class HConfigurationFreeResumeCont[+A](x: HConfiguration[Free[HConfiguration, A]]) extends HConfigurationFreeResume[A]
 private case class HConfigurationFreeResumeTerm[+A](a: A) extends HConfigurationFreeResume[A]
+
+object HConfigurationFreeExample {
+  import com.nicta.scoobi.core.HConfigurationFree._
+
+  def setupConfiguration = {
+    val conf = new Configuration()
+    conf set ("a", "A")
+    conf set ("b", "B")
+    conf set ("c", "C")
+    conf
+  }
+
+  def main(args: Array[String]) {
+    programBefore
+  }
+
+  def programBefore {
+    val conf = setupConfiguration
+    val a = conf get "a"
+    function1(conf)
+    println("a: " + a)
+    println("a: " + (conf get "a"))
+    println("b: " + (conf get "b"))
+    function2(conf)
+    println("a: " + a)
+    println("a: " + (conf get "a"))
+    println("b: " + (conf get "b"))
+    function3(conf)
+    println("a: " + a)
+    println("a: " + (conf get "a"))
+    println("b: " + (conf get "b"))
+  }
+
+  def function1(conf: Configuration) {
+    println("a: " + (conf get "a"))
+    println("b: " + (conf get "b"))
+    conf set ("a", "ax")
+  }
+
+  def function2(conf: Configuration) {
+    println("a: " + (conf get "a"))
+    conf set ("b", "bx")
+    conf set ("a", "axx")
+  }
+
+  def function3(conf: Configuration) {
+    conf unset "a"
+    println("a: " + (conf get "a"))
+    conf unset "b"
+    conf set ("a", "axxx")
+  }
+}
