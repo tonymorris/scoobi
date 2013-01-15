@@ -216,43 +216,57 @@ object HConfigurationFreeExample {
     conf
   }
 
+  object Before {
+    def program {
+      val conf = setupConfiguration
+      val a = conf get "a"
+      function1(conf)
+      println("a: " + a)
+      println("a: " + (conf get "a"))
+      println("b: " + (conf get "b"))
+      function2(conf)
+      println("a: " + a)
+      println("a: " + (conf get "a"))
+      println("b: " + (conf get "b"))
+      function3(conf)
+      println("a: " + a)
+      println("a: " + (conf get "a"))
+      println("b: " + (conf get "b"))
+    }
+
+    def function1(conf: Configuration) {
+      println("a: " + (conf get "a"))
+      println("b: " + (conf get "b"))
+      conf set ("a", "ax")
+    }
+
+    def function2(conf: Configuration) {
+      println("a: " + (conf get "a"))
+      conf set ("b", "bx")
+      conf set ("a", "axx")
+    }
+
+    def function3(conf: Configuration) {
+      conf unset "a"
+      println("a: " + (conf get "a"))
+      conf unset "b"
+      conf set ("a", "axxx")
+    }
+  }
+
+  object After {
+
+    def function3(conf: Configuration) {
+      val g = unset("a")
+      conf unset "a"
+      println("a: " + (conf get "a"))
+      conf unset "b"
+      conf set ("a", "axxx")
+    }
+  }
+
   def main(args: Array[String]) {
-    programBefore
+    Before.program
   }
 
-  def programBefore {
-    val conf = setupConfiguration
-    val a = conf get "a"
-    function1(conf)
-    println("a: " + a)
-    println("a: " + (conf get "a"))
-    println("b: " + (conf get "b"))
-    function2(conf)
-    println("a: " + a)
-    println("a: " + (conf get "a"))
-    println("b: " + (conf get "b"))
-    function3(conf)
-    println("a: " + a)
-    println("a: " + (conf get "a"))
-    println("b: " + (conf get "b"))
-  }
-
-  def function1(conf: Configuration) {
-    println("a: " + (conf get "a"))
-    println("b: " + (conf get "b"))
-    conf set ("a", "ax")
-  }
-
-  def function2(conf: Configuration) {
-    println("a: " + (conf get "a"))
-    conf set ("b", "bx")
-    conf set ("a", "axx")
-  }
-
-  def function3(conf: Configuration) {
-    conf unset "a"
-    println("a: " + (conf get "a"))
-    conf unset "b"
-    conf set ("a", "axxx")
-  }
 }
