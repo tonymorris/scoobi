@@ -73,10 +73,10 @@ sealed trait HConfigurationInterpreter[+A] {
 
   /** Evaluates a single layer of the free monad. */
   def resume: HConfigurationInterpreterResume[A] =
-    free.resume.fold(
-      HConfigurationInterpreterResumeCont(_)
-    , HConfigurationInterpreterResumeTerm(_)
-    )
+    free.resume match {
+      case -\/(e) => HConfigurationInterpreterResumeCont(e)
+      case \/-(r) => HConfigurationInterpreterResumeTerm(r)
+    }
 
   /** Changes the configuration functor by the given natural transformation. */
   def hom[G[+_]](f: HConfiguration ~> G)(implicit G: Functor[G]): Free[G, A] =
@@ -436,5 +436,4 @@ object HConfigurationInterpreterExample {
     println("====")
     After.program
   }
-
 }
