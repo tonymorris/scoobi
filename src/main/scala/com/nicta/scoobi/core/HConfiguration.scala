@@ -274,6 +274,7 @@ object HConfigurationInterpreterExample {
     }
 
     case class HConfigurationEffectInterpreter[+A](x: Free[HConfigurationEffect, A]) {
+      // map, flatMap
       @annotation.tailrec
       final def run(c: Configuration): A =
         x.resume match {
@@ -295,6 +296,14 @@ object HConfigurationInterpreterExample {
     }
 
     object HConfigurationEffectInterpreter {
+      /*
+      implicit val HConfigurationEffectInterpreterFunctor: Functor[HConfigurationEffectInterpreter] =
+        new Functor[HConfigurationEffectInterpreter] {
+          def map[A, B](fa: HConfigurationEffectInterpreter[A])(f: A => B) =
+            fa map f
+        }
+        */
+
       def lift[A](x: HConfigurationInterpreter[A]): HConfigurationEffectInterpreter[A] =
         HConfigurationEffectInterpreter(x hom (new (HConfiguration ~> HConfigurationEffect) {
           def apply[X](c: HConfiguration[X]) =
@@ -310,7 +319,40 @@ object HConfigurationInterpreterExample {
       def unset[A](k: String, v: String): HConfigurationEffectInterpreter[Unit] =
         lift(HConfigurationInterpreter.unset(k))
 
+      def outprintln[A](s: String): HConfigurationInterpreter[Unit] =
+        HConfigurationInterpreter(Suspend(Unset(s, Return(()))))
+
     }
+
+    import HConfigurationEffectInterpreter._
+     /*
+    def function1 =
+      for {
+        _ <- set("", "")
+      } yield ()
+      */
+
+    /*
+
+    def function1(conf: Configuration) {
+      println("a: " + (conf get "a"))
+      Console.err.println("b: " + (conf get "b"))
+      conf set ("a", "ax")
+    }
+
+    def function2(conf: Configuration) {
+      println("a: " + (conf get "a"))
+      conf set ("b", "bx")
+      conf set ("a", "axx")
+    }
+
+    def function3(conf: Configuration) {
+      conf unset "a"
+      println("a: " + (conf get "a"))
+      conf unset "b"
+      conf set ("a", "axxx")
+    }
+     */
   }
 
   def main(args: Array[String]) {
