@@ -272,6 +272,46 @@ object HConfigurationInterpreterExample {
             fa map f
         }
     }
+
+    case class HConfigurationEffectInterpreter[+A](x: Free[HConfigurationEffect, A]) {
+      @annotation.tailrec
+      final def run(c: Configuration): A =
+        x.resume match {
+          case -\/(HConfigurationNoEffect(i)) =>
+            HConfigurationEffectInterpreter(i run c) run c
+          case -\/(HConfigurationOutPrintlnEffect(s, a)) =>
+            HConfigurationEffectInterpreter({
+              println(s)
+              a
+            }) run c
+          case -\/(HConfigurationErrPrintlnEffect(s, a)) =>
+            HConfigurationEffectInterpreter({
+              Console.err.println(s)
+              a
+            }) run c
+          case \/-(a) =>
+            a
+        }
+      /*
+      final def run(c: Configuration): A =
+          resume match {
+            case HConfigurationInterpreterResumeCont(Set(k, v, q)) =>
+              HConfigurationInterpreter({
+                c set (k, v)
+                q
+              }) run c
+            case HConfigurationInterpreterResumeCont(Get(k, q)) =>
+              HConfigurationInterpreter(q(Option(c get k))) run c
+            case HConfigurationInterpreterResumeCont(Unset(k, q)) =>
+              HConfigurationInterpreter({
+                c unset k
+                q
+              }) run c
+            case HConfigurationInterpreterResumeTerm(a) =>
+              a
+          }
+       */
+    }
   }
 
   def main(args: Array[String]) {
