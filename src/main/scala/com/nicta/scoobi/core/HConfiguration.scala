@@ -205,7 +205,11 @@ sealed trait HConfigurationInterpreterResume[+A] {
 case class HConfigurationInterpreterResumeCont[+A](x: HConfiguration[Free[HConfiguration, A]]) extends HConfigurationInterpreterResume[A]
 case class HConfigurationInterpreterResumeTerm[+A](a: A) extends HConfigurationInterpreterResume[A]
 
+// A use-case to demonstrate the hadoop configuration interpreter.
+// The use-case deliberately intersperses effects (e.g. println) that are unrelated to hadoop configuration.
+// This requires the construction of our own interpreter for these effects on top of the existing hadoop interpreter.
 object HConfigurationInterpreterExample {
+  // A hadoop configuration
   def setupConfiguration = {
     val conf = new Configuration()
     conf set ("a", "A")
@@ -214,7 +218,11 @@ object HConfigurationInterpreterExample {
     conf
   }
 
+  // A typical side-effectful program that uses a hadoop configuration and intersperses arbitrary side-effects.
+  // Two effects are interspersed in this example; println (stdout) and err.println (stderr).
+  // The ultimate goal is mechanically transform the program below into pure functional code using the hadoop interpreter.
   object Before {
+    // The top-level program.
     def program {
       val conf = setupConfiguration
       val a = conf get "a"
@@ -232,18 +240,21 @@ object HConfigurationInterpreterExample {
       println("b: " + (conf get "b"))
     }
 
+    // A sub-program.
     def function1(conf: Configuration) {
       println("a: " + (conf get "a"))
       Console.err.println("b: " + (conf get "b"))
       conf set ("a", "ax")
     }
 
+    // A sub-program.
     def function2(conf: Configuration) {
       println("a: " + (conf get "a"))
       conf set ("b", "bx")
       conf set ("a", "axx")
     }
 
+    // A sub-program.
     def function3(conf: Configuration) {
       conf unset "a"
       println("a: " + (conf get "a"))
