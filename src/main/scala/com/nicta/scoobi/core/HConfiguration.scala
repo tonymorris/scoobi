@@ -221,6 +221,7 @@ object HConfigurationInterpreterExample {
   // A typical side-effectful program that uses a hadoop configuration and intersperses arbitrary side-effects.
   // Two effects are interspersed in this example; println (stdout) and err.println (stderr).
   // The ultimate goal is mechanically transform the program below into pure functional code using the hadoop interpreter.
+  // This transformation is performed in `object After`.
   object Before {
     // The top-level program.
     def program {
@@ -263,6 +264,7 @@ object HConfigurationInterpreterExample {
     }
   }
 
+  // The transformation of the `object Before` program using the hadoop interpreter.
   object After {
     sealed trait HConfigurationEffect[+A] {
       def map[B](f: A => B): HConfigurationEffect[B] =
