@@ -388,6 +388,8 @@ object HConfigurationInterpreterExample {
 
   def main(args: Array[String]) {
     Before.program
+    println("====")
+    After.program
   }
 
 }
