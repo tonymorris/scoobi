@@ -319,7 +319,7 @@ object HConfigurationInterpreterExample {
       def get[A](k: String): HConfigurationEffectInterpreter[Option[String]] =
         lift(HConfigurationInterpreter.get(k))
 
-      def unset[A](k: String, v: String): HConfigurationEffectInterpreter[Unit] =
+      def unset[A](k: String): HConfigurationEffectInterpreter[Unit] =
         lift(HConfigurationInterpreter.unset(k))
 
       def outprintln[A](s: String): HConfigurationEffectInterpreter[Unit] =
@@ -335,30 +335,28 @@ object HConfigurationInterpreterExample {
     def function1 =
       for {
         a <- get("a")
-        _ <- outprintln("")
+        _ <- outprintln("a: " + a)
+        b <- get("b")
+        _ <- errprintln("b: " + b)
+        _ <- set ("a", "ax")
       } yield ()
 
-    /*
+    def function2 =
+      for {
+        a <- get("a")
+        _ <- outprintln("a: " + a)
+        _ <- set ("b", "bx")
+        _ <- set ("a", "axx")
+      } yield ()
 
-    def function1(conf: Configuration) {
-      println("a: " + (conf get "a"))
-      Console.err.println("b: " + (conf get "b"))
-      conf set ("a", "ax")
-    }
-
-    def function2(conf: Configuration) {
-      println("a: " + (conf get "a"))
-      conf set ("b", "bx")
-      conf set ("a", "axx")
-    }
-
-    def function3(conf: Configuration) {
-      conf unset "a"
-      println("a: " + (conf get "a"))
-      conf unset "b"
-      conf set ("a", "axxx")
-    }
-     */
+    def function3 =
+      for {
+        _ <- unset("a")
+        a <- get("a")
+        _ <- outprintln("a: " + a)
+        _ <- unset("b")
+        _ <- set ("a", "axxx")
+      } yield ()
   }
 
   def main(args: Array[String]) {
