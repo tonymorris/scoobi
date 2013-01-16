@@ -49,9 +49,239 @@ trait HConfigurationInstances {
  * @see [[http://days2012.scala-lang.org/sites/days2012/files/bjarnason_trampolines.pdf Stackless Scala With Free Monads, Rúnar Óli Bjarnason ]]
  *
  * @example {{{
- *   val x = 7
- *   val y = 8
- * }}}
+// A use-case to demonstrate the hadoop configuration interpreter.
+// The use-case deliberately intersperses effects (e.g. println) that are unrelated to hadoop configuration.
+// This requires the construction of our own interpreter for these effects on top of the existing hadoop interpreter.
+object HConfigurationInterpreterExample {
+  // A hadoop configuration
+  def setupConfiguration = {
+    val conf = new Configuration()
+    conf set ("a", "A")
+    conf set ("b", "B")
+    conf set ("c", "C")
+    conf
+  }
+
+  // A typical side-effectful program that uses a hadoop configuration and intersperses arbitrary side-effects.
+  // Two effects are interspersed in this example; println (stdout) and err.println (stderr).
+  // The ultimate goal is mechanically transform the program below into pure functional code using the hadoop interpreter.
+  // This transformation is performed in `object After`.
+  object Before {
+    // The top-level program.
+    def program {
+      val conf = setupConfiguration
+      val a = conf get "a"
+      function1(conf)
+      println("a: " + a)
+      println("a: " + (conf get "a"))
+      println("b: " + (conf get "b"))
+      function2(conf)
+      println("a: " + a)
+      Console.err.println("a: " + (conf get "a"))
+      println("b: " + (conf get "b"))
+      function3(conf)
+      println("a: " + a)
+      Console.err.println("a: " + (conf get "a"))
+      println("b: " + (conf get "b"))
+    }
+
+    // A sub-program.
+    def function1(conf: Configuration) {
+      println("a: " + (conf get "a"))
+      Console.err.println("b: " + (conf get "b"))
+      conf set ("a", "ax")
+    }
+
+    // A sub-program.
+    def function2(conf: Configuration) {
+      println("a: " + (conf get "a"))
+      conf set ("b", "bx")
+      conf set ("a", "axx")
+    }
+
+    // A sub-program.
+    def function3(conf: Configuration) {
+      conf unset "a"
+      println("a: " + (conf get "a"))
+      conf unset "b"
+      conf set ("a", "axxx")
+    }
+  }
+
+  // The transformation of the `object Before` program using the hadoop interpreter.
+  object After {
+    // Set up a grammar to build on top of the hadoop interpreter. A minimum requirement is that a `Functor` is provided.
+    // To properly model the `Before` program, this grammar accepts one of the following:
+    // * A hadoop configuration interpreter
+    // * A println (out) effect
+    // * A println (err) effect
+    sealed trait HConfigurationEffect[+A] {
+      // The `map` method that is used for the `Functor` which gives the free monad (an arbitrary interpreter).
+      def map[B](f: A => B): HConfigurationEffect[B] =
+        this match {
+          case HConfigurationNoEffect(x) => HConfigurationNoEffect(x map f)
+          case HConfigurationOutPrintlnEffect(s, a) => HConfigurationOutPrintlnEffect(s, f(a))
+          case HConfigurationErrPrintlnEffect(s, a) => HConfigurationErrPrintlnEffect(s, f(a))
+        }
+    }
+    case class HConfigurationNoEffect[+A](x: HConfigurationInterpreter[A]) extends HConfigurationEffect[A]
+    case class HConfigurationOutPrintlnEffect[+A](s: String, a: A) extends HConfigurationEffect[A]
+    case class HConfigurationErrPrintlnEffect[+A](s: String, a: A) extends HConfigurationEffect[A]
+
+    object HConfigurationEffect {
+      // The actual functor instance, which simply calls map
+      implicit val HConfigurationEffectFunctor: Functor[HConfigurationEffect] =
+        new Functor[HConfigurationEffect] {
+          def map[A, B](fa: HConfigurationEffect[A])(f: A => B) =
+            fa map f
+        }
+    }
+
+    // An interpreter for the hadoop configuration interpreter with effects. A functor must be supplied, which simply uses the underlying `Free`, which is a functor since the grammar is a functor.
+    case class HConfigurationEffectInterpreter[+A](free: Free[HConfigurationEffect, A]) {
+      // The `map` method that is used for the `Functor` which gives the free monad (an arbitrary interpreter).
+      def map[B](f: A => B): HConfigurationEffectInterpreter[B] =
+        HConfigurationEffectInterpreter(free map f)
+
+      // Interpreters are monads.
+      def flatMap[B](f: A => HConfigurationEffectInterpreter[B]): HConfigurationEffectInterpreter[B] =
+        HConfigurationEffectInterpreter(free flatMap (f(_).free))
+
+      // Unsafe operation that runs all effects on the given configuration.
+      // This operation is unsafe in that when it is called, the equational reasoning property are lost.
+      // However, the boundary within which that property is lost is clearly delineated.
+      // This is not a pure function, but it isolates side-effects.
+      @annotation.tailrec
+      final def run(c: Configuration): A =
+        free.resume match {
+          // run the hadoop configuration interpreter then continue
+          case -\/(HConfigurationNoEffect(i)) =>
+            HConfigurationEffectInterpreter(i run c) run c
+          // run a println (out) effect then continue.
+          case -\/(HConfigurationOutPrintlnEffect(s, a)) =>
+            HConfigurationEffectInterpreter({
+              println(s)
+              a
+            }) run c
+          // run a println (err) effect then continue.
+          case -\/(HConfigurationErrPrintlnEffect(s, a)) =>
+            HConfigurationEffectInterpreter({
+              Console.err.println(s)
+              a
+            }) run c
+          // halt the recursion and produce a value.
+          case \/-(a) =>
+            a
+        }
+    }
+
+    object HConfigurationEffectInterpreter {
+      // The functor is required for the interpreter.
+      implicit val HConfigurationEffectInterpreterFunctor: Functor[HConfigurationEffectInterpreter] =
+        new Functor[HConfigurationEffectInterpreter] {
+          def map[A, B](fa: HConfigurationEffectInterpreter[A])(f: A => B) =
+            fa map f
+        }
+
+      // Used internally (see below).
+      private def lift[A](x: HConfigurationInterpreter[A]): HConfigurationEffectInterpreter[A] =
+        HConfigurationEffectInterpreter(x hom (new (HConfiguration ~> HConfigurationEffect) {
+          def apply[X](c: HConfiguration[X]) =
+            HConfigurationNoEffect(HConfigurationInterpreter(Suspend(c map (Return(_)))))
+        }))
+
+      // Interpreter instruction to set a key/value on the hadoop configuration.
+      def set[A](k: String, v: String): HConfigurationEffectInterpreter[Unit] =
+        lift(HConfigurationInterpreter.set(k, v))
+
+      // Interpreter instruction to get key's value from the hadoop configuration.
+      def get[A](k: String): HConfigurationEffectInterpreter[Option[String]] =
+        lift(HConfigurationInterpreter.get(k))
+
+      // Interpreter instruction to unset a key on the hadoop configuration.
+      def unset[A](k: String): HConfigurationEffectInterpreter[Unit] =
+        lift(HConfigurationInterpreter.unset(k))
+
+      // Interpreter instruction to print (out) the given string.
+      def outprintln[A](s: String): HConfigurationEffectInterpreter[Unit] =
+        HConfigurationEffectInterpreter(Suspend(HConfigurationOutPrintlnEffect(s, Return(()))))
+
+      // Interpreter instruction to print (err) the given string.
+      def errprintln[A](s: String): HConfigurationEffectInterpreter[Unit] =
+        HConfigurationEffectInterpreter(Suspend(HConfigurationErrPrintlnEffect(s, Return(()))))
+
+    }
+
+    import HConfigurationEffectInterpreter._
+
+    // A top-level program.
+    def program = {
+      // A top-level pure-functional program.
+      val p =
+        for {
+          a <- get("a")
+          _ <- function1
+          _ <- outprintln("a: " + a)
+          aa <- get("a")
+          _ <- outprintln("a: " + aa)
+          b <- get("b")
+          _ <- outprintln("b: " + b)
+          _ <- function2
+          _ <- outprintln("a: " + a)
+          aaa <- get("a")
+          _ <- outprintln("a: " + aaa)
+          bb <- get("b")
+          _ <- outprintln("b: " + bb)
+          _ <- function3
+          _ <- outprintln("a: " + a)
+          aaaa <- get("a")
+          _ <- errprintln("a: " + aaaa)
+          bbb <- get("b")
+          _ <- outprintln("b: " + bbb)
+        } yield ()
+      val conf = setupConfiguration
+      // Invoke the unsafe operation (and then forget the configuration ever existed).
+      p run conf
+    }
+
+    // A pure-functional sub-program.
+    def function1 =
+      for {
+        a <- get("a")
+        _ <- outprintln("a: " + a)
+        b <- get("b")
+        _ <- errprintln("b: " + b)
+        _ <- set ("a", "ax")
+      } yield ()
+
+    // A pure-functional sub-program.
+    def function2 =
+      for {
+        a <- get("a")
+        _ <- outprintln("a: " + a)
+        _ <- set ("b", "bx")
+        _ <- set ("a", "axx")
+      } yield ()
+
+    // A pure-functional sub-program.
+    def function3 =
+      for {
+        _ <- unset("a")
+        a <- get("a")
+        _ <- outprintln("a: " + a)
+        _ <- unset("b")
+        _ <- set ("a", "axxx")
+      } yield ()
+  }
+
+  // Call the `Before` and `After` programs.
+  def main(args: Array[String]) {
+    Before.program
+    println("====")
+    After.program
+  }
+}
+}}}
  * @see [[com.nicta.scoobi.core.HConfiguration]]
  * @since 0.7.0
  * @author Tony Morris
