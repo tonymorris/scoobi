@@ -7,18 +7,18 @@ import org.apache.hadoop.conf.Configuration
 import HConfiguration.{Set, Get, Unset}
 
 /**
- * Implements a grammar for [[http://hadoop.apache.org/docs/current/api/org/apache/hadoop/conf/Configuration.html Hadoop configuration]], which is used as the functor giving rise to the free monad [[com.nicta.scoobi.core.HConfigurationFree]].
+ * Implements a grammar for [[http://hadoop.apache.org/docs/current/api/org/apache/hadoop/conf/Configuration.html Hadoop configuration]], which is used as the functor giving rise to the free monad [[com.nicta.scoobi.core.HConfigurationInterpreter]].
  *
  * @see [[ftp://ftp.math.mcgill.ca/barr/pdffiles/coeqft.pdf Barr, Michael. "Coequalizers and free triples." Mathematische Zeitschrift 116.4 (1970): 307-322.]]
  * @see [[http://days2012.scala-lang.org/sites/days2012/files/bjarnason_trampolines.pdf Stackless Scala With Free Monads, Rúnar Óli Bjarnason ]]
  *
- * @see [[com.nicta.scoobi.core.HConfigurationFree]]
+ * @see [[com.nicta.scoobi.core.HConfigurationInterpreter]]
  * @since 0.7.0
  * @author Tony Morris
  */
 sealed trait HConfiguration[+A] {
   /**
-   * The functor giving rise to the free monad [[com.nicta.scoobi.core.HConfigurationFree]].
+   * The functor giving rise to the free monad [[com.nicta.scoobi.core.HConfigurationInterpreter]].
    */
   def map[B](f: A => B): HConfiguration[B] =
     this match {
@@ -56,26 +56,26 @@ trait HConfigurationInstances {
  * @since 0.7.0
  * @author Tony Morris
  */
-sealed trait HConfigurationFree[+A] {
+sealed trait HConfigurationInterpreter[+A] {
   /**
    * The underlying free monad.
    */
   val free: Free[HConfiguration, A]
 
-  def map[B](f: A => B): HConfigurationFree[B] =
-    HConfigurationFree(free map f)
+  def map[B](f: A => B): HConfigurationInterpreter[B] =
+    HConfigurationInterpreter(free map f)
 
   /**
    * The free monad.
    */
-  def flatMap[B](f: A => HConfigurationFree[B]): HConfigurationFree[B] =
-    HConfigurationFree(free flatMap (f(_).free))
+  def flatMap[B](f: A => HConfigurationInterpreter[B]): HConfigurationInterpreter[B] =
+    HConfigurationInterpreter(free flatMap (f(_).free))
 
   /** Evaluates a single layer of the free monad. */
-  def resume: HConfigurationFreeResume[A] =
+  def resume: HConfigurationInterpreterResume[A] =
     free.resume.fold(
-      HConfigurationFreeResumeCont(_)
-    , HConfigurationFreeResumeTerm(_)
+      HConfigurationInterpreterResumeCont(_)
+    , HConfigurationInterpreterResumeTerm(_)
     )
 
   /** Changes the configuration functor by the given natural transformation. */
@@ -83,18 +83,18 @@ sealed trait HConfigurationFree[+A] {
     free mapSuspension f
 
   /** Runs a single step, using a function that extracts the resumption from its configuration functor. */
-  def bounce[AA >: A](f: HConfiguration[HConfigurationFree[A]] => HConfigurationFree[AA]): HConfigurationFree[AA] =
-    HConfigurationFree(free.bounce(x => f(x map (HConfigurationFree(_))).free))
+  def bounce[AA >: A](f: HConfiguration[HConfigurationInterpreter[A]] => HConfigurationInterpreter[AA]): HConfigurationInterpreter[AA] =
+    HConfigurationInterpreter(free.bounce(x => f(x map (HConfigurationInterpreter(_))).free))
 
   /** Runs to completion, using a function that extracts the resumption from its configuration functor. */
-  def go[AA >: A](f: HConfiguration[HConfigurationFree[AA]] => HConfigurationFree[AA]): AA =
-    free.go[AA](x => f(x map (HConfigurationFree(_))).free)
+  def go[AA >: A](f: HConfiguration[HConfigurationInterpreter[AA]] => HConfigurationInterpreter[AA]): AA =
+    free.go[AA](x => f(x map (HConfigurationInterpreter(_))).free)
 
   /** Runs to completion, allowing the resumption function to thread an arbitrary state of type `B`. */
-  def goState[B, AA >: A](b: B)(f: (B, HConfiguration[HConfigurationFree[AA]]) => (B, HConfigurationFree[AA])): (B, AA) = {
+  def goState[B, AA >: A](b: B)(f: (B, HConfiguration[HConfigurationInterpreter[AA]]) => (B, HConfigurationInterpreter[AA])): (B, AA) = {
     val ff: (B, HConfiguration[Free[HConfiguration, AA]]) => (B, Free[HConfiguration, AA]) =
        (b, x) => {
-         val (bb, h) = f(b, x map (HConfigurationFree(_)))
+         val (bb, h) = f(b, x map (HConfigurationInterpreter(_)))
          (bb, h.free)
        }
 
@@ -102,12 +102,12 @@ sealed trait HConfigurationFree[+A] {
   }
 
   /** Interleave this computation with another, combining the results as a pair. */
-  def zip[B](t: HConfigurationFree[B]): HConfigurationFree[(A, B)] =
-    HConfigurationFree(free.zipWith(t.free, (a, b: B) => (a, b)))
+  def zip[B](t: HConfigurationInterpreter[B]): HConfigurationInterpreter[(A, B)] =
+    HConfigurationInterpreter(free.zipWith(t.free, (a, b: B) => (a, b)))
 
   /** Interleave this computation with another, combining the results with the given function. */
-  def zipWith[B, C](t: HConfigurationFree[B], f: (A, B) => C): HConfigurationFree[C] =
-    HConfigurationFree(free.zipWith(t.free, f))
+  def zipWith[B, C](t: HConfigurationInterpreter[B], f: (A, B) => C): HConfigurationInterpreter[C] =
+    HConfigurationInterpreter(free.zipWith(t.free, f))
 
   /** Applies a function in a comonad to the corresponding value in this configuration monad, annihilating both. */
   def zap[G[+_], B](fs: Cofree[G, A => B])(implicit G: Functor[G], d: Zap[HConfiguration, G]): B =
@@ -125,40 +125,40 @@ sealed trait HConfigurationFree[+A] {
   @annotation.tailrec
   final def run(c: Configuration): A =
     resume match {
-      case HConfigurationFreeResumeCont(Set(k, v, q)) =>
-        HConfigurationFree({
+      case HConfigurationInterpreterResumeCont(Set(k, v, q)) =>
+        HConfigurationInterpreter({
           c set (k, v)
           q
         }) run c
-      case HConfigurationFreeResumeCont(Get(k, q)) =>
-        HConfigurationFree(q(Option(c get k))) run c
-      case HConfigurationFreeResumeCont(Unset(k, q)) =>
-        HConfigurationFree({
+      case HConfigurationInterpreterResumeCont(Get(k, q)) =>
+        HConfigurationInterpreter(q(Option(c get k))) run c
+      case HConfigurationInterpreterResumeCont(Unset(k, q)) =>
+        HConfigurationInterpreter({
           c unset k
           q
         }) run c
-      case HConfigurationFreeResumeTerm(a) =>
+      case HConfigurationInterpreterResumeTerm(a) =>
         a
     }
 
 }
 
-object HConfigurationFree extends HConfigurationFreeFunctions {
-  private[core] def apply[A](f: Free[HConfiguration, A]): HConfigurationFree[A] =
-    new HConfigurationFree[A] {
+object HConfigurationInterpreter extends HConfigurationFreeFunctions {
+  def apply[A](f: Free[HConfiguration, A]): HConfigurationInterpreter[A] =
+    new HConfigurationInterpreter[A] {
       val free = f
     }
 }
 
 trait HConfigurationFreeFunctions {
-  def set[A](k: String, v: String): HConfigurationFree[Unit] =
-    HConfigurationFree(Suspend(Set(k, v, Return(()))))
+  def set[A](k: String, v: String): HConfigurationInterpreter[Unit] =
+    HConfigurationInterpreter(Suspend(Set(k, v, Return(()))))
 
-  def get[A](k: String): HConfigurationFree[Option[String]] =
-    HConfigurationFree(Suspend(Get(k, Return(_))))
+  def get[A](k: String): HConfigurationInterpreter[Option[String]] =
+    HConfigurationInterpreter(Suspend(Get(k, Return(_))))
 
-  def unset[A](k: String): HConfigurationFree[Unit] =
-    HConfigurationFree(Suspend(Unset(k, Return(()))))
+  def unset[A](k: String): HConfigurationInterpreter[Unit] =
+    HConfigurationInterpreter(Suspend(Unset(k, Return(()))))
 }
 
 /**
@@ -166,32 +166,32 @@ trait HConfigurationFreeFunctions {
  *
  * This is either a value (`A`) or a configuration computation (`HConfiguration[Free[HConfiguration, A]]`).
  *
- * @see [[com.nicta.scoobi.core.HConfigurationFree]]
+ * @see [[com.nicta.scoobi.core.HConfigurationInterpreter]]
  * @since 0.7.0
  * @author Tony Morris
  */
-sealed trait HConfigurationFreeResume[+A] {
-  def map[B](f: A => B): HConfigurationFreeResume[B] =
+sealed trait HConfigurationInterpreterResume[+A] {
+  def map[B](f: A => B): HConfigurationInterpreterResume[B] =
     this match {
-      case HConfigurationFreeResumeCont(x) =>
-        HConfigurationFreeResumeCont(x map (_ map f))
-      case HConfigurationFreeResumeTerm(a) =>
-        HConfigurationFreeResumeTerm(f(a))
+      case HConfigurationInterpreterResumeCont(x) =>
+        HConfigurationInterpreterResumeCont(x map (_ map f))
+      case HConfigurationInterpreterResumeTerm(a) =>
+        HConfigurationInterpreterResumeTerm(f(a))
     }
 
-  def free: HConfigurationFree[A] =
-    HConfigurationFree(this match {
-      case HConfigurationFreeResumeCont(x) =>
+  def free: HConfigurationInterpreter[A] =
+    HConfigurationInterpreter(this match {
+      case HConfigurationInterpreterResumeCont(x) =>
         Suspend(x)
-      case HConfigurationFreeResumeTerm(a) =>
+      case HConfigurationInterpreterResumeTerm(a) =>
         Return(a)
     })
 
   def term: Option[A] =
     this match {
-      case HConfigurationFreeResumeCont(_) =>
+      case HConfigurationInterpreterResumeCont(_) =>
         None
-      case HConfigurationFreeResumeTerm(a) =>
+      case HConfigurationInterpreterResumeTerm(a) =>
         Some(a)
     }
 
@@ -202,12 +202,10 @@ sealed trait HConfigurationFreeResume[+A] {
     termOr(a)
 
 }
-private case class HConfigurationFreeResumeCont[+A](x: HConfiguration[Free[HConfiguration, A]]) extends HConfigurationFreeResume[A]
-private case class HConfigurationFreeResumeTerm[+A](a: A) extends HConfigurationFreeResume[A]
+private case class HConfigurationInterpreterResumeCont[+A](x: HConfiguration[Free[HConfiguration, A]]) extends HConfigurationInterpreterResume[A]
+private case class HConfigurationInterpreterResumeTerm[+A](a: A) extends HConfigurationInterpreterResume[A]
 
-object HConfigurationFreeExample {
-  import com.nicta.scoobi.core.HConfigurationFree._
-
+object HConfigurationInterpreterExample {
   def setupConfiguration = {
     val conf = new Configuration()
     conf set ("a", "A")
@@ -256,13 +254,6 @@ object HConfigurationFreeExample {
 
   object After {
 
-    def function3(conf: Configuration) {
-      val g = unset("a")
-      conf unset "a"
-      println("a: " + (conf get "a"))
-      conf unset "b"
-      conf set ("a", "axxx")
-    }
   }
 
   def main(args: Array[String]) {
