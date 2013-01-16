@@ -332,6 +332,33 @@ object HConfigurationInterpreterExample {
 
     import HConfigurationEffectInterpreter._
 
+    def program = {
+      val p =
+        for {
+          a <- get("a")
+          _ <- function1
+          _ <- outprintln("a: " + a)
+          aa <- get("a")
+          _ <- outprintln("a: " + aa)
+          b <- get("b")
+          _ <- outprintln("b: " + b)
+          _ <- function2
+          _ <- outprintln("a: " + a)
+          aaa <- get("a")
+          _ <- outprintln("a: " + aaa)
+          bb <- get("b")
+          _ <- outprintln("b: " + bb)
+          _ <- function3
+          _ <- outprintln("a: " + a)
+          aaaa <- get("a")
+          _ <- errprintln("a: " + aaaa)
+          bbb <- get("b")
+          _ <- outprintln("b: " + bbb)
+        } yield ()
+      val conf = setupConfiguration
+      p run conf
+    }
+
     def function1 =
       for {
         a <- get("a")
