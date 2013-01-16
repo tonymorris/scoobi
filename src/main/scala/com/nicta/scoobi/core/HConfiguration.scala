@@ -253,10 +253,25 @@ object HConfigurationInterpreterExample {
   }
 
   object After {
-    sealed trait HConfigurationEffect[+A]
+    sealed trait HConfigurationEffect[+A] {
+      def map[B](f: A => B): HConfigurationEffect[B] =
+        this match {
+          case HConfigurationNoEffect(x) => HConfigurationNoEffect(x map f)
+          case HConfigurationOutPrintlnEffect(s, a) => HConfigurationOutPrintlnEffect(s, f(a))
+          case HConfigurationErrPrintlnEffect(s, a) => HConfigurationErrPrintlnEffect(s, f(a))
+        }
+    }
     case class HConfigurationNoEffect[+A](x: HConfigurationInterpreter[A]) extends HConfigurationEffect[A]
     case class HConfigurationOutPrintlnEffect[+A](s: String, a: A) extends HConfigurationEffect[A]
     case class HConfigurationErrPrintlnEffect[+A](s: String, a: A) extends HConfigurationEffect[A]
+
+    object HConfigurationEffect {
+      implicit val HConfigurationEffectFunctor: Functor[HConfigurationEffect] =
+        new Functor[HConfigurationEffect] {
+          def map[A, B](fa: HConfigurationEffect[A])(f: A => B) =
+            fa map f
+        }
+    }
   }
 
   def main(args: Array[String]) {
