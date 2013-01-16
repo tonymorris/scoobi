@@ -266,7 +266,13 @@ object HConfigurationInterpreterExample {
 
   // The transformation of the `object Before` program using the hadoop interpreter.
   object After {
+    // Set up a grammar to build on top of the hadoop interpreter. A minimum requirement is that a `Functor` is provided.
+    // To properly model the `Before` program, this grammar accepts one of the following:
+    // * A hadoop configuration interpreter
+    // * A println (out) effect
+    // * A println (err) effect
     sealed trait HConfigurationEffect[+A] {
+      // The `map` method that is used for the `Functor` which gives the free monad (an arbitrary interpreter).
       def map[B](f: A => B): HConfigurationEffect[B] =
         this match {
           case HConfigurationNoEffect(x) => HConfigurationNoEffect(x map f)
@@ -279,6 +285,7 @@ object HConfigurationInterpreterExample {
     case class HConfigurationErrPrintlnEffect[+A](s: String, a: A) extends HConfigurationEffect[A]
 
     object HConfigurationEffect {
+      // The actual functor instance, which simply calls map
       implicit val HConfigurationEffectFunctor: Functor[HConfigurationEffect] =
         new Functor[HConfigurationEffect] {
           def map[A, B](fa: HConfigurationEffect[A])(f: A => B) =
@@ -286,13 +293,20 @@ object HConfigurationInterpreterExample {
         }
     }
 
+    // An interpreter for the hadoop configuration interpreter with effects. A functor must be supplied, which simply uses the underlying `Free`, which is a functor since the grammar is a functor.
     case class HConfigurationEffectInterpreter[+A](free: Free[HConfigurationEffect, A]) {
+      // The `map` method that is used for the `Functor` which gives the free monad (an arbitrary interpreter).
       def map[B](f: A => B): HConfigurationEffectInterpreter[B] =
         HConfigurationEffectInterpreter(free map f)
 
+      // Interpreters are monads.
       def flatMap[B](f: A => HConfigurationEffectInterpreter[B]): HConfigurationEffectInterpreter[B] =
         HConfigurationEffectInterpreter(free flatMap (f(_).free))
 
+      // Unsafe operation that runs all effects on the given configuration.
+      // This operation is unsafe in that when it is called, the equational reasoning property are lost.
+      // However, the boundary within which that property is lost is clearly delineated.
+      // This is not a pure function, but it isolates side-effects.
       @annotation.tailrec
       final def run(c: Configuration): A =
         free.resume match {
