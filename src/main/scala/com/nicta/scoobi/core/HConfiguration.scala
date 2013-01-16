@@ -143,14 +143,14 @@ sealed trait HConfigurationInterpreter[+A] {
 
 }
 
-object HConfigurationInterpreter extends HConfigurationFreeFunctions {
+object HConfigurationInterpreter extends HConfigurationInterpreterFunctions {
   def apply[A](f: Free[HConfiguration, A]): HConfigurationInterpreter[A] =
     new HConfigurationInterpreter[A] {
       val free = f
     }
 }
 
-trait HConfigurationFreeFunctions {
+trait HConfigurationInterpreterFunctions {
   def set[A](k: String, v: String): HConfigurationInterpreter[Unit] =
     HConfigurationInterpreter(Suspend(Set(k, v, Return(()))))
 
@@ -202,8 +202,8 @@ sealed trait HConfigurationInterpreterResume[+A] {
     termOr(a)
 
 }
-private case class HConfigurationInterpreterResumeCont[+A](x: HConfiguration[Free[HConfiguration, A]]) extends HConfigurationInterpreterResume[A]
-private case class HConfigurationInterpreterResumeTerm[+A](a: A) extends HConfigurationInterpreterResume[A]
+case class HConfigurationInterpreterResumeCont[+A](x: HConfiguration[Free[HConfiguration, A]]) extends HConfigurationInterpreterResume[A]
+case class HConfigurationInterpreterResumeTerm[+A](a: A) extends HConfigurationInterpreterResume[A]
 
 object HConfigurationInterpreterExample {
   def setupConfiguration = {
@@ -224,17 +224,17 @@ object HConfigurationInterpreterExample {
       println("b: " + (conf get "b"))
       function2(conf)
       println("a: " + a)
-      println("a: " + (conf get "a"))
+      Console.err.println("a: " + (conf get "a"))
       println("b: " + (conf get "b"))
       function3(conf)
       println("a: " + a)
-      println("a: " + (conf get "a"))
+      Console.err.println("a: " + (conf get "a"))
       println("b: " + (conf get "b"))
     }
 
     def function1(conf: Configuration) {
       println("a: " + (conf get "a"))
-      println("b: " + (conf get "b"))
+      Console.err.println("b: " + (conf get "b"))
       conf set ("a", "ax")
     }
 
@@ -253,7 +253,10 @@ object HConfigurationInterpreterExample {
   }
 
   object After {
-
+    sealed trait HConfigurationEffect[+A]
+    case class HConfigurationNoEffect[+A](x: HConfigurationInterpreter[A]) extends HConfigurationEffect[A]
+    case class HConfigurationOutPrintlnEffect[+A](s: String, a: A) extends HConfigurationEffect[A]
+    case class HConfigurationErrPrintlnEffect[+A](s: String, a: A) extends HConfigurationEffect[A]
   }
 
   def main(args: Array[String]) {
