@@ -292,25 +292,24 @@ object HConfigurationInterpreterExample {
           case \/-(a) =>
             a
         }
-      /*
-      final def run(c: Configuration): A =
-          resume match {
-            case HConfigurationInterpreterResumeCont(Set(k, v, q)) =>
-              HConfigurationInterpreter({
-                c set (k, v)
-                q
-              }) run c
-            case HConfigurationInterpreterResumeCont(Get(k, q)) =>
-              HConfigurationInterpreter(q(Option(c get k))) run c
-            case HConfigurationInterpreterResumeCont(Unset(k, q)) =>
-              HConfigurationInterpreter({
-                c unset k
-                q
-              }) run c
-            case HConfigurationInterpreterResumeTerm(a) =>
-              a
-          }
-       */
+    }
+
+    object HConfigurationEffectInterpreter {
+      def lift[A](x: HConfigurationInterpreter[A]): HConfigurationEffectInterpreter[A] =
+        HConfigurationEffectInterpreter(x hom (new (HConfiguration ~> HConfigurationEffect) {
+          def apply[X](c: HConfiguration[X]) =
+            HConfigurationNoEffect(HConfigurationInterpreter(Suspend(c map (Return(_)))))
+        }))
+
+      def set[A](k: String, v: String): HConfigurationEffectInterpreter[Unit] =
+        lift(HConfigurationInterpreter.set(k, v))
+
+      def get[A](k: String): HConfigurationEffectInterpreter[Option[String]] =
+        lift(HConfigurationInterpreter.get(k))
+
+      def unset[A](k: String, v: String): HConfigurationEffectInterpreter[Unit] =
+        lift(HConfigurationInterpreter.unset(k))
+
     }
   }
 
