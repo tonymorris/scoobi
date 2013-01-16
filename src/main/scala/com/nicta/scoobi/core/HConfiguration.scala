@@ -244,6 +244,7 @@ object HConfigurationInterpreterExample {
       p run conf
     }
 
+      /*
     // A pure-functional sub-program.
     def function1 =
       for {
@@ -272,6 +273,7 @@ object HConfigurationInterpreterExample {
         _ <- unset("b")
         _ <- set ("a", "axxx")
       } yield ()
+      */
   }
 
   // Call the `Before` and `After` programs.
