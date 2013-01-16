@@ -310,48 +310,59 @@ object HConfigurationInterpreterExample {
       @annotation.tailrec
       final def run(c: Configuration): A =
         free.resume match {
+          // run the hadoop configuration interpreter then continue
           case -\/(HConfigurationNoEffect(i)) =>
             HConfigurationEffectInterpreter(i run c) run c
+          // run a println (out) effect then continue.
           case -\/(HConfigurationOutPrintlnEffect(s, a)) =>
             HConfigurationEffectInterpreter({
               println(s)
               a
             }) run c
+          // run a println (err) effect then continue.
           case -\/(HConfigurationErrPrintlnEffect(s, a)) =>
             HConfigurationEffectInterpreter({
               Console.err.println(s)
               a
             }) run c
+          // halt the recursion and produce a value.
           case \/-(a) =>
             a
         }
     }
 
     object HConfigurationEffectInterpreter {
+      // The functor is required for the interpreter.
       implicit val HConfigurationEffectInterpreterFunctor: Functor[HConfigurationEffectInterpreter] =
         new Functor[HConfigurationEffectInterpreter] {
           def map[A, B](fa: HConfigurationEffectInterpreter[A])(f: A => B) =
             fa map f
         }
 
-      def lift[A](x: HConfigurationInterpreter[A]): HConfigurationEffectInterpreter[A] =
+      // Used internally (see below).
+      private def lift[A](x: HConfigurationInterpreter[A]): HConfigurationEffectInterpreter[A] =
         HConfigurationEffectInterpreter(x hom (new (HConfiguration ~> HConfigurationEffect) {
           def apply[X](c: HConfiguration[X]) =
             HConfigurationNoEffect(HConfigurationInterpreter(Suspend(c map (Return(_)))))
         }))
 
+      // Interpreter instruction to set a key/value on the hadoop configuration.
       def set[A](k: String, v: String): HConfigurationEffectInterpreter[Unit] =
         lift(HConfigurationInterpreter.set(k, v))
 
+      // Interpreter instruction to get key's value from the hadoop configuration.
       def get[A](k: String): HConfigurationEffectInterpreter[Option[String]] =
         lift(HConfigurationInterpreter.get(k))
 
+      // Interpreter instruction to unset a key on the hadoop configuration.
       def unset[A](k: String): HConfigurationEffectInterpreter[Unit] =
         lift(HConfigurationInterpreter.unset(k))
 
+      // Interpreter instruction to print (out) the given string.
       def outprintln[A](s: String): HConfigurationEffectInterpreter[Unit] =
         HConfigurationEffectInterpreter(Suspend(HConfigurationOutPrintlnEffect(s, Return(()))))
 
+      // Interpreter instruction to print (err) the given string.
       def errprintln[A](s: String): HConfigurationEffectInterpreter[Unit] =
         HConfigurationEffectInterpreter(Suspend(HConfigurationErrPrintlnEffect(s, Return(()))))
 
@@ -359,7 +370,9 @@ object HConfigurationInterpreterExample {
 
     import HConfigurationEffectInterpreter._
 
+    // A top-level program.
     def program = {
+      // A top-level pure-functional program.
       val p =
         for {
           a <- get("a")
@@ -383,9 +396,11 @@ object HConfigurationInterpreterExample {
           _ <- outprintln("b: " + bbb)
         } yield ()
       val conf = setupConfiguration
+      // Invoke the unsafe operation (and then forget the configuration ever existed).
       p run conf
     }
 
+    // A pure-functional sub-program.
     def function1 =
       for {
         a <- get("a")
@@ -395,6 +410,7 @@ object HConfigurationInterpreterExample {
         _ <- set ("a", "ax")
       } yield ()
 
+    // A pure-functional sub-program.
     def function2 =
       for {
         a <- get("a")
@@ -403,6 +419,7 @@ object HConfigurationInterpreterExample {
         _ <- set ("a", "axx")
       } yield ()
 
+    // A pure-functional sub-program.
     def function3 =
       for {
         _ <- unset("a")
@@ -413,6 +430,7 @@ object HConfigurationInterpreterExample {
       } yield ()
   }
 
+  // Call the `Before` and `After` programs.
   def main(args: Array[String]) {
     Before.program
     println("====")
