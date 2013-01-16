@@ -273,11 +273,16 @@ object HConfigurationInterpreterExample {
         }
     }
 
-    case class HConfigurationEffectInterpreter[+A](x: Free[HConfigurationEffect, A]) {
-      // map, flatMap
+    case class HConfigurationEffectInterpreter[+A](free: Free[HConfigurationEffect, A]) {
+      def map[B](f: A => B): HConfigurationEffectInterpreter[B] =
+        HConfigurationEffectInterpreter(free map f)
+
+      def flatMap[B](f: A => HConfigurationEffectInterpreter[B]): HConfigurationEffectInterpreter[B] =
+        HConfigurationEffectInterpreter(free flatMap (f(_).free))
+
       @annotation.tailrec
       final def run(c: Configuration): A =
-        x.resume match {
+        free.resume match {
           case -\/(HConfigurationNoEffect(i)) =>
             HConfigurationEffectInterpreter(i run c) run c
           case -\/(HConfigurationOutPrintlnEffect(s, a)) =>
@@ -296,13 +301,11 @@ object HConfigurationInterpreterExample {
     }
 
     object HConfigurationEffectInterpreter {
-      /*
       implicit val HConfigurationEffectInterpreterFunctor: Functor[HConfigurationEffectInterpreter] =
         new Functor[HConfigurationEffectInterpreter] {
           def map[A, B](fa: HConfigurationEffectInterpreter[A])(f: A => B) =
             fa map f
         }
-        */
 
       def lift[A](x: HConfigurationInterpreter[A]): HConfigurationEffectInterpreter[A] =
         HConfigurationEffectInterpreter(x hom (new (HConfiguration ~> HConfigurationEffect) {
@@ -319,18 +322,21 @@ object HConfigurationInterpreterExample {
       def unset[A](k: String, v: String): HConfigurationEffectInterpreter[Unit] =
         lift(HConfigurationInterpreter.unset(k))
 
-      def outprintln[A](s: String): HConfigurationInterpreter[Unit] =
-        HConfigurationInterpreter(Suspend(Unset(s, Return(()))))
+      def outprintln[A](s: String): HConfigurationEffectInterpreter[Unit] =
+        HConfigurationEffectInterpreter(Suspend(HConfigurationOutPrintlnEffect(s, Return(()))))
+
+      def errprintln[A](s: String): HConfigurationEffectInterpreter[Unit] =
+        HConfigurationEffectInterpreter(Suspend(HConfigurationErrPrintlnEffect(s, Return(()))))
 
     }
 
     import HConfigurationEffectInterpreter._
-     /*
+
     def function1 =
       for {
-        _ <- set("", "")
+        a <- get("a")
+        _ <- outprintln("")
       } yield ()
-      */
 
     /*
 
