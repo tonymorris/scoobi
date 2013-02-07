@@ -89,16 +89,6 @@ class ReductionSpec extends UnitSpecification with ScalaCheck {
         and.associative(x, y, z)
     }
 
-  "xor is associative" >> prop {
-      (x: Boolean, y: Boolean, z: Boolean) =>
-        xor.associative(x, y, z)
-    }
-
-  "biimplication is associative" >> prop {
-      (x: Boolean, y: Boolean, z: Boolean) =>
-        biimplication.associative(x, y, z)
-    }
-
   "ordering is associative" >> prop {
       (x: Ordering, y: Ordering, z: Ordering) =>
         ordering.associative(x, y, z)

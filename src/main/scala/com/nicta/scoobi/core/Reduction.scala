@@ -478,24 +478,21 @@ object Reduction {
     Reduction(_ && _)
 
   /**
-   * A reduction that takes the exclusive-or (inequality) of its two arguments.
-   */
-  def xor: Reduction[Boolean] =
-    Reduction(_ != _)
-
-  /**
-   * A reduction that takes the bi-implication (equality) of its two arguments.
-   */
-  def biimplication: Reduction[Boolean] =
-    Reduction(_ == _)
-
-  /**
    * Takes an equal instance to a reduction on equal instances.
    */
   def equal[A](implicit E: Equal[A]): Reduction[Equal[A]] =
     Reduction((e1, e2) => new Equal[A] {
       def equal(a1: A, a2: A) =
         E equal (a1, a2)
+    })
+
+  /**
+   * Takes an equal instance to a reduction on unequal instances.
+   */
+  def unequal[A](implicit E: Equal[A]): Reduction[Equal[A]] =
+    Reduction((e1, e2) => new Equal[A] {
+      def equal(a1: A, a2: A) =
+        !(E equal (a1, a2))
     })
 
   /**
