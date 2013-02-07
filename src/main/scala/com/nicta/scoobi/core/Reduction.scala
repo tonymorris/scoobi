@@ -172,6 +172,30 @@ object Reduction {
   def and: Reduction[Boolean] =
     Reduction(_ && _)
 
+  def xor: Reduction[Boolean] =
+    Reduction(_ != _)
+
+  def biimplication: Reduction[Boolean] =
+    Reduction(_ == _)
+
+  def equal[A](implicit E: Equal[A]): Reduction[Equal[A]] =
+    Reduction((e1, e2) => new Equal[A] {
+      def equal(a1: A, a2: A) =
+        E equal (a1, a2)
+    })
+
+  def order[A](implicit O: Order[A]): Reduction[Order[A]] =
+    Reduction((e1, e2) => new Order[A] {
+      def order(a1: A, a2: A) =
+        O order (a1, a2)
+    })
+
+  def show[A](implicit S: Show[A]): Reduction[Show[A]] =
+    Reduction((e1, e2) => new Show[A] {
+      override def show(a: A) =
+        S show a
+    })
+
   def ordering: Reduction[Ordering] =
     Reduction((a1, a2) => a1 match {
       case Ordering.EQ => a2
