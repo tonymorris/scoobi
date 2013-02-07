@@ -44,6 +44,31 @@ trait Reduction[A] {
       case ((a1, b1, c1, d1, e1), (a2, b2, c2, d2, e2)) => (reduce(a1, a2), b reduce (b1, b2), c reduce (c1, c2), d reduce (d1, d2), e reduce (e1, e2))
     }
 
+  def wzip[W](implicit S: Semigroup[W]): Reduction[(W, A)] =
+    Reduction {
+      case ((w1, a1), (w2, a2)) => (S.append(w1, w2), reduce(a1, a2))
+    }
+
+  def wzip2[W, X](implicit SW: Semigroup[W], SX: Semigroup[X]): Reduction[(W, X, A)] =
+    Reduction {
+      case ((w1, x1, a1), (w2, x2, a2)) => (SW.append(w1, w2), SX.append(x1, x2), reduce(a1, a2))
+    }
+
+  def wzip3[W, X, Y](implicit SW: Semigroup[W], SX: Semigroup[X], SY: Semigroup[Y]): Reduction[(W, X, Y, A)] =
+    Reduction {
+      case ((w1, x1, y1, a1), (w2, x2, y2, a2)) => (SW.append(w1, w2), SX.append(x1, x2), SY.append(y1, y2), reduce(a1, a2))
+    }
+
+  def wzip4[W, X, Y, Z](implicit SW: Semigroup[W], SX: Semigroup[X], SY: Semigroup[Y], SZ: Semigroup[Z]): Reduction[(W, X, Y, Z, A)] =
+    Reduction {
+      case ((w1, x1, y1, z1, a1), (w2, x2, y2, z2, a2)) => (SW.append(w1, w2), SX.append(x1, x2), SY.append(y1, y2), SZ.append(z1, z2), reduce(a1, a2))
+    }
+
+  def wzip5[W, X, Y, Z, V](implicit SW: Semigroup[W], SX: Semigroup[X], SY: Semigroup[Y], SZ: Semigroup[Z], SV: Semigroup[V]): Reduction[(W, X, Y, Z, V, A)] =
+    Reduction {
+      case ((w1, x1, y1, z1, v1, a1), (w2, x2, y2, z2, v2, a2)) => (SW.append(w1, w2), SX.append(x1, x2), SY.append(y1, y2), SZ.append(z1, z2), SV.append(v1, v2), reduce(a1, a2))
+    }
+
   def left[B](r: => Reduction[B]): Reduction[A \/ B] =
     Reduction((x1, x2) => x1 match {
       case -\/(a1) => x2 match {
@@ -123,11 +148,27 @@ trait Reduction[A] {
       }
     })
 
+  def store[B](r: Reduction[B]): Reduction[Store[A, B]] =
+    Reduction((s1, s2) =>
+      Store(r.pointwise[A] reduce (s1 put _, s2 put _), reduce(s1.pos, s2.pos))
+    )
+
+  def state[S]: Reduction[State[S, A]] =
+    Reduction((s1, s2) =>
+      s1 flatMap (a1 => s2 map (a2 => reduce(a1, a2))))
+
+  def writer[W: Semigroup]: Reduction[Writer[W, A]] =
+    Reduction((w1, w2) =>
+      w1 flatMap (a1 => w2 map (a2 => reduce(a1, a2))))
+
   def xmap[B](f: A => B, g: B => A): Reduction[B] =
     Reduction((b1, b2) => f(reduce(g(b1), g(b2))))
 
   def biject[B](b: Bijection[A, B]): Reduction[B] =
     xmap(b to _, b from _)
+
+  def on(f: A => A): Reduction[A] =
+    xmap(f, f)
 
   def semigroup: Semigroup[A] =
     Semigroup.instance((a1, a2) => reduce(a1, a2))
