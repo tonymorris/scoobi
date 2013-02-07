@@ -85,26 +85,7 @@ trait Reduction[A] {
         case Success(b2) => Success(b reduce (b1, b2))
       }
     })
-  /*
-          def +++[EE >: E, AA >: A](x: => Validation[EE, AA])(implicit M1: Semigroup[AA], M2: Semigroup[EE]): Validation[EE, AA] =
-    this match {
-      case Failure(a1) => x match {
-        case Failure(a2) => Failure(M2.append(a1, a2))
-        case Success(b2) => Failure(a1)
-      }
-      case Success(b1) => x match {
-        case Failure(a2) => Failure(a2)
-        case Success(b2) => Success(M1.append(b1, b2))
-      }
-    }
 
-  implicit def ValidationSemigroup[E: Semigroup, A: Semigroup]: Semigroup[Validation[E, A]] =
-    new Semigroup[Validation[E, A]] {
-      def append(a1: Validation[E, A], a2: => Validation[E, A]) =
-        a1 +++ a2
-    }
-
-   */
   def xmap[B](f: A => B, g: B => A): Reduction[B] =
     Reduction((b1, b2) => f(reduce(g(b1), g(b2))))
 
