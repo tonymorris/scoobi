@@ -223,12 +223,6 @@ object Reduction {
   def minimum[A](implicit O: Order[A]): Reduction[A] =
     Reduction((a1, a2) => O min (a1, a2))
 
-  def minimumOption[A](implicit O: Order[A]): Reduction[Option[A]] =
-    Reduction((a1, a2) => Order[Option[A]] min (a1, a2))
-
-  def maximumOption[A](implicit O: Order[A]): Reduction[Option[A]] =
-    Reduction((a1, a2) => Order[Option[A]] max (a1, a2))
-
   def maximum[A](implicit O: Order[A]): Reduction[A] =
     Reduction((a1, a2) => O max (a1, a2))
 
