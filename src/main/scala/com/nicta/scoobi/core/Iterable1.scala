@@ -138,7 +138,7 @@ trait Iterable1[+A] {
   /**
    * Return an iterable with only the elements satisfying the predicate.
    */
-  def withFilter(p: A => Boolean): FilterMonadic[A, Iterable[A]] = // : Iterable[A] =
+  def withFilter(p: A => Boolean): FilterMonadic[A, Iterable[A]] =
     toIterable withFilter p
 
   /**
