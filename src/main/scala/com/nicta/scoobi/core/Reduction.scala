@@ -3,6 +3,9 @@ package core
 
 import scalaz._, Scalaz._, BijectionT._
 
+/*
+ * A binary associative operation on a closed set. It is the responsibility of implementations to ensure associativity.
+ */
 trait Reduction[A] {
   val reduce: (A, A) => A
 
@@ -135,6 +138,31 @@ trait Reduction[A] {
     Reduction((g, h) => Kleisli {
       case (b, c, d, e, f) => A.apply2(g(b, c, d, e, f), h(b, c, d, e, f))(reduce(_, _))
     })
+
+  def pointwiseC[Q[+_], B]: Reduction[Cokleisli[Q, B, A]] =
+    Reduction((g, h) => Cokleisli(
+      b => reduce(g run b, h run b)
+    ))
+
+  def pointwise2C[Q[+_], B, C]: Reduction[Cokleisli[Q, (B, C), A]] =
+    Reduction((g, h) => Cokleisli(
+      b => reduce(g run b, h run b)
+    ))
+
+  def pointwise3C[Q[+_], B, C, D]: Reduction[Cokleisli[Q, (B, C, D), A]] =
+    Reduction((g, h) => Cokleisli(
+      b => reduce(g run b, h run b)
+    ))
+
+  def pointwise4C[Q[+_], B, C, D, E]: Reduction[Cokleisli[Q, (B, C, D, E), A]] =
+    Reduction((g, h) => Cokleisli(
+      b => reduce(g run b, h run b)
+    ))
+
+  def pointwise5C[Q[+_], B, C, D, E, F]: Reduction[Cokleisli[Q, (B, C, D, E, F), A]] =
+    Reduction((g, h) => Cokleisli(
+      b => reduce(g run b, h run b)
+    ))
 
   def validation[B](b: Reduction[B]): Reduction[Validation[A, B]] =
     Reduction((v1, v2) => v1 match {
