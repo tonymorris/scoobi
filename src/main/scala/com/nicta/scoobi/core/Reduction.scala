@@ -213,8 +213,12 @@ trait Reduction[A] {
   }
 
   class Associative {
-    def law(a1: A, a2: A, a3: A)(implicit E: Equal[A]): Boolean =
+    def apply(a1: A, a2: A, a3: A)(implicit E: Equal[A]): Boolean =
       reduce(reduce(a1, a2), a3) === reduce(a1, (reduce(a2, a3)))
+
+    def by[B](a1: A, a2: A, a3: A)(f: A => B)(implicit E: Equal[B]): Boolean = {
+      E contramap f equal (reduce(reduce(a1, a2), a3), reduce(a1, (reduce(a2, a3))))
+    }
   }
   def associative: Associative = new Associative
 
@@ -385,7 +389,7 @@ object Reduction {
   def stack[A]: Reduction[collection.immutable.Stack[A]] =
     Reduction(_ ++ _)
 
-  def nodeseq: Reduction[xml.NodeSeq] =
+  def nodeseq: Reduction[scala.xml.NodeSeq] =
     Reduction(_ ++ _)
 
   object Sum {
@@ -416,7 +420,7 @@ object Reduction {
     def int: Reduction[Int] =
       Reduction(_ + _)
 
-    def long: Reduction[Int] =
+    def long: Reduction[Long] =
       Reduction(_ + _)
 
     def short: Reduction[Short] =
@@ -455,7 +459,7 @@ object Reduction {
     def int: Reduction[Int] =
       Reduction(_ * _)
 
-    def long: Reduction[Int] =
+    def long: Reduction[Long] =
       Reduction(_ * _)
 
     def short: Reduction[Short] =

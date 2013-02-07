@@ -4,7 +4,7 @@ package core
 import org.specs2.ScalaCheck
 import com.nicta.scoobi.testing.mutable.UnitSpecification
 
-import scalaz._, Scalaz._
+import scalaz._, Scalaz._, scalacheck.ScalazArbitrary._
 
 class ReductionSpec extends UnitSpecification with ScalaCheck {
   import Reduction._
@@ -39,19 +39,184 @@ class ReductionSpec extends UnitSpecification with ScalaCheck {
         last[Int].reduce(x, y) == y
     }
 
-  "first associative" >> prop {
+  "first is associative" >> prop {
       (x: Int, y: Int, z: Int) =>
-        first[Int].associative.law(x, y, z)
+        first[Int].associative(x, y, z)
     }
 
-  "last associative" >> prop {
+  "last is associative" >> prop {
       (x: Int, y: Int, z: Int) =>
-        last[Int].associative.law(x, y, z)
+        last[Int].associative(x, y, z)
     }
 
-  "firstOption associative" >> prop {
+  "firstOption is associative" >> prop {
       (x: Option[Int], y: Option[Int], z: Option[Int]) =>
-        firstOption[Int].associative.law(x, y, z)
+        firstOption[Int].associative(x, y, z)
+    }
+
+  "lastOption is associative" >> prop {
+      (x: Option[Int], y: Option[Int], z: Option[Int]) =>
+        lastOption[Int].associative(x, y, z)
+    }
+
+  "minimum is associative" >> prop {
+      (x: Int, y: Int, z: Int) =>
+        minimum[Int].associative(x, y, z)
+    }
+
+  "maximum is associative" >> prop {
+      (x: Int, y: Int, z: Int) =>
+        maximum[Int].associative(x, y, z)
+    }
+
+  "endo is associative" >> prop {
+      (x: Int => Int, y: Int => Int, z: Int => Int, a: Int) =>
+        endo[Int].associative.by(x, y, z)(_(a))
+    }
+
+  "or is associative" >> prop {
+      (x: Boolean, y: Boolean, z: Boolean) =>
+        or.associative(x, y, z)
+    }
+
+  "and is associative" >> prop {
+      (x: Boolean, y: Boolean, z: Boolean) =>
+        and.associative(x, y, z)
+    }
+
+  "xor is associative" >> prop {
+      (x: Boolean, y: Boolean, z: Boolean) =>
+        xor.associative(x, y, z)
+    }
+
+  "biimplication is associative" >> prop {
+      (x: Boolean, y: Boolean, z: Boolean) =>
+        biimplication.associative(x, y, z)
+    }
+
+  "ordering is associative" >> prop {
+      (x: Ordering, y: Ordering, z: Ordering) =>
+        ordering.associative(x, y, z)
+    }
+
+  "string is associative" >> prop {
+      (x: String, y: String, z: String) =>
+        string.associative(x, y, z)
+    }
+
+  "list is associative" >> prop {
+      (x: List[Int], y: List[Int], z: List[Int]) =>
+        list[Int].associative(x, y, z)
+    }
+
+  "stream is associative" >> prop {
+      (x: Stream[Int], y: Stream[Int], z: Stream[Int]) =>
+        stream[Int].associative(x, y, z)
+    }
+
+  "non-empty list is associative" >> prop {
+      (x: NonEmptyList[Int], y: NonEmptyList[Int], z: NonEmptyList[Int]) =>
+        nonEmptyList[Int].associative(x, y, z)
+    }
+
+  "big decimal sum is associative" >> prop {
+      (x: BigDecimal, y: BigDecimal, z: BigDecimal) =>
+        Sum.bigdecimal.associative(x, y, z)
+    }
+
+  "big int sum is associative" >> prop {
+      (x: BigInt, y: BigInt, z: BigInt) =>
+        Sum.bigint.associative(x, y, z)
+    }
+
+  "byte sum is associative" >> prop {
+      (x: Byte, y: Byte, z: Byte) =>
+        Sum.byte.associative(x, y, z)
+    }
+
+  "char sum is associative" >> prop {
+      (x: Char, y: Char, z: Char) =>
+        Sum.char.associative(x, y, z)
+    }
+
+  "double sum is associative" >> prop {
+      (x: Double, y: Double, z: Double) =>
+        Sum.double.associative(x, y, z)
+    }
+
+  "float sum is associative" >> prop {
+      (x: Float, y: Float, z: Float) =>
+        Sum.float.associative(x, y, z)
+    }
+
+  "int sum is associative" >> prop {
+      (x: Int, y: Int, z: Int) =>
+        Sum.int.associative(x, y, z)
+    }
+
+  "long sum is associative" >> prop {
+      (x: Long, y: Long, z: Long) =>
+        Sum.long.associative(x, y, z)
+    }
+
+  "short sum is associative" >> prop {
+      (x: Short, y: Short, z: Short) =>
+        Sum.short.associative(x, y, z)
+    }
+
+  "digit sum is associative" >> prop {
+      (x: Digit, y: Digit, z: Digit) =>
+        Sum.digit.associative(x, y, z)
+    }
+
+  "big decimal product is associative" >> prop {
+      (x: BigDecimal, y: BigDecimal, z: BigDecimal) =>
+        Product.bigdecimal.associative(x, y, z)
+    }
+
+  "big int product is associative" >> prop {
+      (x: BigInt, y: BigInt, z: BigInt) =>
+        Product.bigint.associative(x, y, z)
+    }
+
+  "byte product is associative" >> prop {
+      (x: Byte, y: Byte, z: Byte) =>
+        Product.byte.associative(x, y, z)
+    }
+
+  "char product is associative" >> prop {
+      (x: Char, y: Char, z: Char) =>
+        Product.char.associative(x, y, z)
+    }
+
+  "double product is associative" >> prop {
+      (x: Double, y: Double, z: Double) =>
+        Product.double.associative(x, y, z)
+    }
+
+  "float product is associative" >> prop {
+      (x: Float, y: Float, z: Float) =>
+        Product.float.associative(x, y, z)
+    }
+
+  "int product is associative" >> prop {
+      (x: Int, y: Int, z: Int) =>
+        Product.int.associative(x, y, z)
+    }
+
+  "long product is associative" >> prop {
+      (x: Long, y: Long, z: Long) =>
+        Product.long.associative(x, y, z)
+    }
+
+  "short product is associative" >> prop {
+      (x: Short, y: Short, z: Short) =>
+        Product.short.associative(x, y, z)
+    }
+
+  "digit product is associative" >> prop {
+      (x: Digit, y: Digit, z: Digit) =>
+        Product.digit.associative(x, y, z)
     }
 
 }
