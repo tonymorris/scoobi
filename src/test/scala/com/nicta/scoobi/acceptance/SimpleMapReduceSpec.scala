@@ -46,6 +46,7 @@ class SimpleMapReduceSpec extends NictaSimpleJobs {
     val list = DList[String]()
     list.run must beEmpty
   }
+
   "Persisting a DList which becomes empty after filtering shouldn't fail" >> { implicit sc: SC =>
     val list = DList(1 -> "one", 2 -> "two", 3 -> "three").filter(_ => false).groupByKey.groupByKey
     list.run must beEmpty

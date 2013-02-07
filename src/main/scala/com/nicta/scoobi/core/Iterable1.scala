@@ -13,9 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.nicta.scoobi.core
+package com.nicta.scoobi
+package core
 
 import scalaz._, Scalaz._
+import collection.generic.FilterMonadic
 
 /**
  * A non-empty iterable contains at least one element. Consequences include:
@@ -132,6 +134,12 @@ trait Iterable1[+A] {
    */
   def filter(p: A => Boolean): Iterable[A] =
     toIterable filter p
+
+  /**
+   * Return an iterable with only the elements satisfying the predicate.
+   */
+  def withFilter(p: A => Boolean): FilterMonadic[A, Iterable[A]] = // : Iterable[A] =
+    toIterable withFilter p
 
   /**
    * Partition the iterable into those satisfying a predicate and those that do not.
@@ -283,6 +291,9 @@ trait Iterable1[+A] {
    */
   def toSeq: Seq[A] =
     toIterable.toSeq
+
+  def toMap[T, U](implicit ev: A <:< (T, U)): Map[T, U] =
+    toIterable.toMap
 
   /**
    * Convert this iterable to a stream.

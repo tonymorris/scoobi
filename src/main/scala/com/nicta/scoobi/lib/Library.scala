@@ -1,7 +1,7 @@
 package com.nicta.scoobi
 package lib
 
-import core.{DList, Grouping, WireFormat}
+import core.{DList, Grouping, WireFormat, Grouped1, Iterable1, Association1}
 import org.apache.hadoop.io._
 
 trait Library {
@@ -28,8 +28,8 @@ trait Library {
   implicit def dlistToRowWiseWithMapReduceJob[E : WireFormat : Ordering, T : WireFormat](m: DMatrix[E, T]): DRowWiseMatrix[E, T] =
     DRowWiseMatrix(m.map { case ((r, c), v) => (r, (c, v)) }.groupByKey)
 
-  implicit def dlistToRowWise[Elem: WireFormat: Ordering, T: WireFormat](m: DList[(Elem, Iterable[(Elem, T)])]): DRowWiseMatrix[Elem, T] =
-    DRowWiseMatrix(m)
+  implicit def dlistToRowWise[Elem: WireFormat: Ordering, T: WireFormat](m: DList[(Elem, Iterable1[(Elem, T)])]): DRowWiseMatrix[Elem, T] =
+    DRowWiseMatrix(Grouped1(m.map { case (k, v) => Association1(k, v) }))
 
   implicit def rowWiseToDList[Elem: WireFormat: Ordering, T: WireFormat](m: DRowWiseMatrix[Elem, T]) = m.data
 
@@ -46,8 +46,8 @@ trait Library {
   implicit def dlistToColWiseWithMapReduceJob[Elem: WireFormat: Ordering, T: WireFormat](m: DMatrix[Elem, T]): DColWiseMatrix[Elem, T] =
     DColWiseMatrix(m.map { case ((r, c), v) => (c, (r, v)) }.groupByKey)
 
-  implicit def dlistToColWise[Elem : WireFormat: Ordering, T : WireFormat](m: DList[(Elem, Iterable[(Elem, T)])]): DColWiseMatrix[Elem, T] =
-    DColWiseMatrix(m)
+  implicit def dlistToColWise[Elem : WireFormat: Ordering, T : WireFormat](m: DList[(Elem, Iterable1[(Elem, T)])]): DColWiseMatrix[Elem, T] =
+    DColWiseMatrix(Grouped1(m.map { case (k, v) => Association1(k, v) }))
 
   implicit def colWiseToDList[Elem : WireFormat: Ordering, T : WireFormat](m: DColWiseMatrix[Elem, T]) = m.data
 

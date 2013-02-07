@@ -5,13 +5,12 @@ package mscr
 
 import org.apache.hadoop.conf.Configuration
 import scala.collection.mutable.ListBuffer
-import org.specs2.specification.Grouped
 import testing.UnitSpecification
 import comp._
 import core._
 import mapreducer._
 
-class OutputChannelSpec extends UnitSpecification with Grouped { def is =
+class OutputChannelSpec extends UnitSpecification with org.specs2.specification.Grouped { def is =
 
   """
   An OutputChannel encapsulates processing nodes for the outputs of a Mscr.

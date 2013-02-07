@@ -54,11 +54,11 @@ trait DList[A] extends DataSinks with Persistent[Seq[A]] {
   def ++(ins: DList[A]*): DList[A]
 
   /**Group the values of a distributed list with key-value elements by key. */
-  def groupByKey[K, V](implicit ev: A <:< (K, V), wk: WireFormat[K], gpk: Grouping[K], wv: WireFormat[V]): DList[(K, Iterable[V])]
+  def groupByKey[K, V](implicit ev: A <:< (K, V), wk: WireFormat[K], gpk: Grouping[K], wv: WireFormat[V]): Grouped1[K, V]
 
   /**Apply an associative function to reduce the collection of values to a single value in a
    * key-value-collection distributed list. */
-  def combine[K, V](f: (V, V) => V)(implicit ev: A <:< (K, Iterable[V]), wk: WireFormat[K], wv: WireFormat[V]): DList[(K, V)]
+  def combine[K, V](f: (V, V) => V)(implicit wk: WireFormat[K], wv: WireFormat[V]): DList[(K, V)]
 
   @deprecated(message="use materialise instead", since="0.6.0")
   def materialize: DObject[Iterable[A]] = materialise
@@ -68,6 +68,11 @@ trait DList[A] extends DataSinks with Persistent[Seq[A]] {
    * by the client
    */
   def materialise: DObject[Iterable[A]]
+
+  /**
+   * Turn a distributed list into a normal, non-distributed non-empty collection that can be accessed
+   * by the client
+   */
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Derived functionality (return DLists).
@@ -80,7 +85,7 @@ trait DList[A] extends DataSinks with Persistent[Seq[A]] {
    * secondary sorts, or groupings with strange logic (like making sure None's / nulls are
    * sprayed across all reducers
    */
-  def groupByKeyWith[K, V](grouping: Grouping[K])(implicit ev: A <:< (K, V), wfk: WireFormat[K], wfv: WireFormat[V]): DList[(K, Iterable[V])] =
+  def groupByKeyWith[K, V](grouping: Grouping[K])(implicit ev: A <:< (K, V), wfk: WireFormat[K], wfv: WireFormat[V]): Grouped1[K, V] =
     groupByKey(ev, wfk, grouping, wfv)
 
   /**
@@ -162,16 +167,16 @@ trait DList[A] extends DataSinks with Persistent[Seq[A]] {
       def groupCompare(x: A, y: A) = scalaz.Ordering.fromInt(x.hashCode.compare(y.hashCode))
     }
 
-    parallelDo(dropCached).groupByKey.map(_._1)
+    parallelDo(dropCached).groupByKey[A, Int].keys
   }
 
   /** Group the values of a distributed list according to some discriminator function. */
-  def groupBy[K : WireFormat : Grouping](f: A => K): DList[(K, Iterable[A])] =
+  def groupBy[K : WireFormat : Grouping](f: A => K): Grouped1[K, A] =
     map(x => (f(x), x)).groupByKey
 
   /** Group the value of a distributed list according to some discriminator function
     * and some grouping function. */
-  def groupWith[K : WireFormat](f: A => K)(gpk: Grouping[K]): DList[(K, Iterable[A])] = {
+  def groupWith[K : WireFormat](f: A => K)(gpk: Grouping[K]): Grouped1[K, A] = {
     implicit def grouping = gpk
     map(x => (f(x), x)).groupByKey
   }
@@ -222,9 +227,9 @@ trait DList[A] extends DataSinks with Persistent[Seq[A]] {
       }
     })
 
-    /* Group all elements together (so they go to the same reducer task) and then
-     * combine them. */
-    val x: DObject[Iterable[A]] = imc.groupBy(_ => 0).combine(op).map(_._2).materialise
+    // todo return DList1 from Grouped1#combine
+    val h: DList[(Int, A)] = imc.groupBy(_ => 0).combine(op)
+    val x = h.map(_._2).materialise
     x map (_.headOption getOrElse (sys.error("the reduce operation is called on an empty list")))
   }
 

@@ -40,7 +40,7 @@ object WordCount extends ScoobiApp {
     val keyValuePair: DList[(String, Int)] = lines mapFlatten { _.split(" ") } map { w => (w, 1) }
 
     // Now let's group all words that compare the same
-    val grouped: DList[(String, Iterable[Int])] = keyValuePair.groupByKey
+    val grouped: Grouped1[String, Int] = keyValuePair.groupByKey
     // Now we have it in the form (Word, ['1', '1', '1', 1' etc.])
 
     // So what we want to do, is combine all the numbers into a single value (the frequency)

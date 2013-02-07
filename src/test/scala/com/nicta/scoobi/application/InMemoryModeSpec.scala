@@ -15,7 +15,7 @@ class InMemoryModeSpec extends HadoopSpecification with SimpleJobs with CompNode
       DList(1, 2, 3).map(_ + 1).run === Seq(2, 3, 4)
     }
     "Combine" >> { implicit sc: ScoobiConfiguration =>
-      DList((1, Seq(2, 3)), (3, Seq(4))).combine((_:Int) + (_:Int)).run === Seq((1, 5), (3, 4))
+      DList((1, Seq(2, 3)), (3, Seq(4))).combine[Int, Int]((_:Int) + (_:Int)).run === Seq((1, 5), (3, 4))
     }
   }
 

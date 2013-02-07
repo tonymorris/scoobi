@@ -37,7 +37,8 @@ class SecondarySortSpec extends NictaSimpleJobs {
 
     val bigKey: DList[((FirstName, LastName), LastName)] = names.map(a => ((a._1, a._2), a._2))
 
-    bigKey.groupByKeyWith(secondary).map { case ((first, _), lasts) => (first, lasts.mkString(",")) }.run.sortBy(_._1).mkString === Seq(
+    bigKey.groupByKeyWith(secondary).mapa(((_: (FirstName, LastName))._1) <-: _ :-> (_ mkString ",")).run.sortBy(_.key).mkString ===
+      Seq(
       "(Bat,Man)",
       "(John,Kennedy)",
       "(Leonardo,Da Vinci,De Capro)",

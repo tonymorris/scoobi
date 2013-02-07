@@ -39,7 +39,7 @@ class DListSpec extends NictaSimpleJobs with TerminationMatchers {
 
   tag("issue 117")
   "A groupByKey followed by a groupByKey must be ok" >> { implicit sc: SC =>
-    val list = DList.tabulate(5)((n: Int) => ("hello" -> "world")).groupByKey.groupByKey
+    val list = DList.tabulate(5)((n: Int) => ("hello" -> "world")).groupByKey.groupByKey.list
     run(list).toString.split(", ").filter { case w => w contains "world" } must have size(5)
   }
 
@@ -47,15 +47,28 @@ class DListSpec extends NictaSimpleJobs with TerminationMatchers {
   "A complex graph example must not throw an exception" >> { implicit sc: SC =>
 
     def simpleJoin[T: WireFormat, V: WireFormat](a: DList[(Int, T)], b: DList[(Int, V)]) =
-      (a.map(x => (x._1, x._1)) ++ b.map(x => (x._1, x._1))).groupByKey
+      (a.map(x => (x._1, x._1)) ++ b.map(x => (x._1, x._1))).groupByKey.paired
 
     val data = DList((12 -> 13), (14 -> 15), (13 -> 55))
     val (a, b, c, d, e) = (data, data, data, data, data)
 
     val q = simpleJoin(simpleJoin(a, b), simpleJoin(c, d))
-    val res = simpleJoin(q, simpleJoin(q, e).groupByKey)
+    val res = simpleJoin(q, simpleJoin(q, e).groupByKey.paired)
 
     res.run must haveTheSameElementsAs(res.run(configureForInMemory(ScoobiConfiguration())))
+  }
+
+  tag("issue 127")
+  "There must be no cyclic execution" >> { implicit sc: SC =>
+    val input = fromKeyValues("k1,1", "k2,2")
+
+    val inputGrouped = input.groupBy(_._1).paired
+    val inputGroupedDifferently = input.groupBy(_._2).paired
+    val inputGroupedAsDObject = inputGrouped.materialise
+
+    val dObjectJoinedToInputGroupedDiff = (inputGroupedAsDObject join inputGroupedDifferently)
+
+    run(dObjectJoinedToInputGroupedDiff) must terminate(sleep = 60.seconds)
   }
 
   tag("issue 119")

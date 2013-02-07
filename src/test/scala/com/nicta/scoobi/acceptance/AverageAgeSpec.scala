@@ -22,7 +22,6 @@ import AverageAge._
 import io.text.TextInput.{ALong, AnInt}
 
 class AverageAgeSpec extends NictaSimpleJobs {
-
   "The average age of a list of persons can be computed as a distributed job" >> { implicit sc: SC =>
     val input =
       fromInput("100,Ben,Lever,31",
@@ -41,8 +40,8 @@ class AverageAgeSpec extends NictaSimpleJobs {
         collect { case ALong(id) :: fN :: sN :: AnInt(age) :: _ => Person(id, sN, fN, age) }
 
       val nameAndAge = persons.map { p => (p.firstName, p.age) }
-      val grouped    = nameAndAge.groupByKey
-      grouped map { case (n, ages) => (n, average(ages)) }
+      val grouped    = nameAndAge.groupByKey[String, Int]
+      grouped.list map (a => (a.key, average(a.values.toIterable)))
     }
 
     averages.run.sorted.mkString(", ") must_== "(Ben,29), (Michael,40), (Rami,35), (Sean,57), (Tom,55)"

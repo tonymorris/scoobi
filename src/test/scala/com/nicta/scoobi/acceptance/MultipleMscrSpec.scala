@@ -59,8 +59,8 @@ class MultipleMscrSpec extends NictaSimpleJobs {
 
     val input = fromDelimitedInput("k1,v1","k2,v2").collect { case key :: value :: _ => (key, value) }
 
-    val inputGrouped = input.groupBy(_._1)
-    val inputGroupedDifferently = input.groupBy(_._2)
+    val inputGrouped = input.groupBy(_._1).paired
+    val inputGroupedDifferently = input.groupBy(_._2).paired
 
     val inputGroupedAsDObject = inputGrouped.materialise
 
@@ -78,11 +78,11 @@ class MultipleMscrSpec extends NictaSimpleJobs {
     val input = fromDelimitedInput("k1,v1","k2,v2").collect { case key :: value :: _ => (key, value) }
 
                                                        
-    val inputGrouped = input.groupBy(_._1).map(identity).         // Seq((k1, Seq((k1, v1)), (k2, Seq((k2, v2))))
-                             groupBy(_._1).                       // Seq((k1, Seq((k1, Seq((k1, v1))))), (k2, Seq((k2, Seq((k2, v2))))))
+    val inputGrouped = input.groupBy(_._1).paired.map(identity).         // Seq((k1, Seq((k1, v1)), (k2, Seq((k2, v2))))
+                             groupBy(_._1).paired.                       // Seq((k1, Seq((k1, Seq((k1, v1))))), (k2, Seq((k2, Seq((k2, v2))))))
                              map(b => (b._1, b._2.flatMap(_._2))) // Seq((k1, Seq((k1, v1))), (k2, Seq((k2, v2))))
 
-    val inputGroupedDifferently = input.groupBy(_._2)             // Seq((v1, Seq((k1, v1)), (v2, Seq((k2, v2))))
+    val inputGroupedDifferently = input.groupBy(_._2).paired             // Seq((v1, Seq((k1, v1)), (v2, Seq((k2, v2))))
     val inputGroupedAsDObject = inputGrouped.materialise
 
     val dObjectJoinedToInputGroupedDiff = (inputGroupedAsDObject join inputGroupedDifferently)
@@ -101,10 +101,10 @@ class MultipleMscrSpec extends NictaSimpleJobs {
     val b: DList[Int] = DList(1)
 
     val s: Seq[DObject[Iterable[(Int, Int)]]] = Seq(0, 1) map { _ =>
-      val w = (mkkv(a) ++ mkkv(b)).groupByKey map { case (k, vs) => (k, vs.head) }
-      val x =                    w.groupByKey map { case (k, vs) => (k, vs.head) }
+      val w = (mkkv(a) ++ mkkv(b)).groupByKey.paired map { case (k, vs) => (k, vs.head) }
+      val x =                    w.groupByKey.paired map { case (k, vs) => (k, vs.head) }
       val y = (mkkv(a) ++ x)
-      val z = y.groupByKey map { case (k, vs) => (k, vs.head) }
+      val z = y.groupByKey.paired map { case (k, vs) => (k, vs.head) }
       z.materialise
     }
 
@@ -122,10 +122,10 @@ class MultipleMscrSpec extends NictaSimpleJobs {
     val dd: DList[(Int, Int)] = DList((1, 1))
 
     val s: Seq[DObject[Iterable[(Int, Int)]]] = Seq(0, 1) map { i =>
-      val w = (aa ++ bb).groupByKey map { case (k, vs) => (k, vs.head) }
-      val x = ((if (i == 0) cc else dd) ++ w).groupByKey map { case (k, vs) => (k, vs.head) }
+      val w = (aa ++ bb).groupByKey.paired map { case (k, vs) => (k, vs.head) }
+      val x = ((if (i == 0) cc else dd) ++ w).groupByKey.paired map { case (k, vs) => (k, vs.head) }
       val y = ((if (i == 0) dd else cc) ++ x)
-      val z = y.groupByKey map { case (k, vs) => (k, vs.head) }
+      val z = y.groupByKey.paired map { case (k, vs) => (k, vs.head) }
       z.materialise
     }
 
@@ -134,4 +134,5 @@ class MultipleMscrSpec extends NictaSimpleJobs {
     (r0.run.head must_== (1, 1))
     (r1.run.head must_== (1, 1))
   }
+
 }

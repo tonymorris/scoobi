@@ -21,7 +21,6 @@ import testing.mutable.NictaSimpleJobs
 import ShortestPath._
 
 class ShortestPathSpec extends NictaSimpleJobs {
-
   "The shortest path in a graph can be computed using Hadoop" >> { implicit sc: SC =>
     val nodes =
       fromInput("A B", "A C", "C D", "C E", "D E", "F G", "E F", "G E")
@@ -32,9 +31,9 @@ class ShortestPathSpec extends NictaSimpleJobs {
       val grouped = adjacencies.groupByKey[Node, Node]
       val startingPoint = Node("A")
 
-      val formatted = grouped.map {
-        case (node, es) if (node == startingPoint) => (node, NodeInfo(es, Frontier(0)))
-        case (node, es)                            => (node, NodeInfo(es, Unprocessed()))
+      val formatted = grouped.paired.map {
+        case (node, es) if (node == startingPoint) => (node, NodeInfo(es.toIterable, Frontier(0)))
+        case (node, es)                            => (node, NodeInfo(es.toIterable, Unprocessed()))
       }
 
       val iterations = 5

@@ -59,6 +59,9 @@ sealed trait Association1[+K, +V] {
   def bimap[W, L](f: K => L, g: V => W): Association1[L, W] =
     Association1(f(key), values map g)
 
+  def paired: (K, Iterable1[V]) =
+    (key, values)
+
   /**
    * Zip the values of this association with the given association to produce an iterable of pairs. Alias for `***`.
    */

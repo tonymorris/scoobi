@@ -19,7 +19,7 @@ package lib
 import Scoobi._
 import scala.collection.mutable.ArrayBuffer
 import LinearAlgebra._
-import core.WireFormat
+import core.{Grouped1, WireFormat, Association1}
 import WireFormat._
 
 /**
@@ -87,7 +87,7 @@ case class InMemDenseVector[T : WireFormat](data: DObject[IndexedSeq[T]]) {
  * A distributed row-wise matrix. This is an efficient representation for multiplying by an in-memory vector. The contents of each row
  * must be small enough to fit in memory
  */
-case class DRowWiseMatrix[Elem: WireFormat : Ordering, T : WireFormat](data: DList[(Elem, Iterable[(Elem, T)])]) {
+case class DRowWiseMatrix[Elem: WireFormat : Ordering, T : WireFormat](data: Grouped1[Elem, (Elem, T)]) {
   
   def byVector[V, R](
     dv: InMemDenseVector[V],
@@ -101,13 +101,18 @@ case class DRowWiseMatrix[Elem: WireFormat : Ordering, T : WireFormat](data: DLi
     dv: InMemVector[Elem, V],
     mult: (T, V) => R,
     add: (R, R) => R): InMemVector[Elem, R] = matrixByVector(this, dv, mult, add)
+
+  def col: DColWiseMatrix[Elem, T] =
+    DColWiseMatrix(data)
 }
 
 /**
  * A col-wise matrix. This is an efficient representation for multiplying by an in-memory vector. The contents of each column
  * must be small enough to fit in memory
  */
-case class DColWiseMatrix[Elem, T](data: DList[(Elem, Iterable[(Elem, T)])]) {
+case class DColWiseMatrix[Elem, T](data: core.Grouped1[Elem, (Elem, T)]) {
+  def row(implicit E: WireFormat[Elem], O: Ordering[Elem], W: WireFormat[T]): DRowWiseMatrix[Elem, T] =
+    DRowWiseMatrix(data)
 }
 
 /**
@@ -170,20 +175,19 @@ object LinearAlgebra {
     add: (R, R) => R)(implicit tm: WireFormat[T],
       vm: WireFormat[V],
       rm: WireFormat[R]): InMemDenseVector[R] = {
-
-    val all = dv join m
+    val all = dv join m.data.list
 
     val distributedVector =
       all.map {
-        case (arr, (elem, vals)) => {
+        case (arr, a) => {
 
           val products =
-            for (q <- vals if arr.contains(q._1))
+            for (q <- a.values if arr.contains(q._1))
               yield mult(q._2, arr(q._1))
 
           val result = if (products.isEmpty) zero else products.reduce(add)
 
-          (elem, result)
+          (a.key, result)
         }
       }
 
@@ -196,17 +200,17 @@ object LinearAlgebra {
     mult: (T, V) => R,
     add: (R, R) => R): InMemVector[Elem, R] = {
 
-    val all = dv join m
+    val all = dv join m.data.list
 
     val distributedVector =
       all.mapFlatten {
-        case (arr, (elem, vals)) => {
+        case (arr, a) => {
 
           val products =
-            for (q <- vals if arr.contains(q._1))
+            for (q <- a.values if arr.contains(q._1))
               yield mult(q._2, arr(q._1))
 
-          if (products.isEmpty) None else Some(elem, products.reduce(add))
+          if (products.isEmpty) None else Some(a.key, products.reduce(add))
         }
       }
 
@@ -218,14 +222,14 @@ object LinearAlgebra {
     m: DColWiseMatrix[Int, T],
     zero: R,
     mult: (V, T) => R,
-    add: (R, R) => R): InMemDenseVector[R] = matrixByVector(m.data, dv, zero, (a: T, b: V) => mult(b, a), add)
+    add: (R, R) => R): InMemDenseVector[R] = matrixByVector(m.row, dv, zero, (a: T, b: V) => mult(b, a), add)
 
   def vectorByMatrix[Elem: WireFormat: Ordering, T: WireFormat, V: WireFormat, R: WireFormat](
     dv: InMemVector[Elem, T],
     m: DColWiseMatrix[Elem, V],
     zero: R,
     mult: (T, V) => R,
-    add: (R, R) => R): InMemVector[Elem, R] = matrixByVector(m.data, dv, (a: V, b: T) => mult(b, a), add)
+    add: (R, R) => R): InMemVector[Elem, R] = matrixByVector(m.row, dv, (a: V, b: T) => mult(b, a), add)
 
   /* Does an expensive conversion */
   def vectorByMatrix[T: WireFormat, V: WireFormat, R: WireFormat](
@@ -243,18 +247,17 @@ object LinearAlgebra {
     {
       val left = matrix.by(_._1._2)
 
-      left.groupByKey.parallelDo(
-        new BasicDoFn[(Elem, Iterable[((Elem, Elem), Value)]), ((Elem, Elem), Q)] {
-          def process(input: (Elem, Iterable[((Elem, Elem), Value)]), emitter: Emitter[((Elem, Elem), Q)]) = {
-            val bs = generateRow()
+      left.groupByKey.parallelDo(new BasicDoFn[Association1[Elem, ((Elem, Elem), Value)], ((Elem, Elem), Q)] {
+        def process(input: Association1[Elem, ((Elem, Elem), Value)], emitter: Emitter[((Elem, Elem), Q)]) {
+          val bs = generateRow()
 
-            for (a <- input._2) {
-              bs.foreach {
-                b => emitter.emit(((a._1._1, b._1), mult(a._2, b._2)))
-              }
+          for (a <- input.values) {
+            bs.foreach {
+              b => emitter.emit(((a._1._1, b._1), mult(a._2, b._2)))
             }
           }
-        }).groupByKey.combine((a: Q, b: Q) => add(a, b))
+        }
+      }).groupByKey.combine((a: Q, b: Q) => add(a, b))
     }
 
   def matrixByDenseFunc[V: WireFormat, Value: WireFormat, Q: WireFormat](
@@ -266,17 +269,18 @@ object LinearAlgebra {
       val left = matrix.map(a => (a._1._2, (a._1._1,a._2)))
 
       left.groupByKey.parallelDo(
-        new BasicDoFn[(Int, Iterable[(Int, Value)]), ((Int, Int), Q)] {
-          def process(input: (Int, Iterable[(Int, Value)]), emitter: Emitter[((Int, Int), Q)]) = {
+        new BasicDoFn[Association1[Int, (Int, Value)], ((Int, Int), Q)] {
+          def process(input: Association1[Int, (Int, Value)], emitter: Emitter[((Int, Int), Q)]) {
             val bs = generateRow()
 
-            for (a <- input._2) {
+            for (a <- input.values) {
               bs.zipWithIndex.foreach {
                 b => emitter.emit(((a._1, b._2), mult(a._2, b._1)))
               }
             }
           }
         }).groupByKey.combine((a: Q, b: Q) => add(a, b))
+
     }
 
   def matrixByMatrix[Elem: WireFormat: Ordering, V: WireFormat, Value: WireFormat, Q: WireFormat](
@@ -286,31 +290,30 @@ object LinearAlgebra {
     add: (Q, Q) => Q): DMatrix[Elem, Q] = {
 
     val left = l.by(_._1._2).map(x => (x._1, Left(x._2): Either[((Elem, Elem), Value), ((Elem, Elem), V)]))
-      val right = r.by(_._1._1).map(x => (x._1, Right(x._2): Either[((Elem, Elem), Value), ((Elem, Elem), V)]))
+    val right = r.by(_._1._1).map(x => (x._1, Right(x._2): Either[((Elem, Elem), Value), ((Elem, Elem), V)]))
 
-      (left ++ right).groupByKey.parallelDo(
-        new BasicDoFn[(Elem, Iterable[Either[((Elem, Elem), Value), ((Elem, Elem), V)]]), ((Elem, Elem), Q)] {
-          def process(input: (Elem, Iterable[Either[((Elem, Elem), Value), ((Elem, Elem), V)]]), emitter: Emitter[((Elem, Elem), Q)]) = {
-            val as: ArrayBuffer[((Elem, Elem), Value)] = new ArrayBuffer[((Elem, Elem), Value)]()
-            val bs: ArrayBuffer[((Elem, Elem), V)] = new ArrayBuffer[((Elem, Elem), V)]()
+    (left ++ right).groupByKey.parallelDo(new BasicDoFn[Association1[Elem, Either[((Elem, Elem), Value), ((Elem, Elem), V)]], ((Elem, Elem), Q)] {
+      def process(input: Association1[Elem, Either[((Elem, Elem), Value), ((Elem, Elem), V)]], emitter: Emitter[((Elem, Elem), Q)]) {
+        val as: ArrayBuffer[((Elem, Elem), Value)] = new ArrayBuffer[((Elem, Elem), Value)]()
+        val bs: ArrayBuffer[((Elem, Elem), V)] = new ArrayBuffer[((Elem, Elem), V)]()
 
-            input._2 foreach {
-              case Left(a) => {
-                as += a
-                bs.foreach {
-                  b => emitter.emit((a._1._1, b._1._2), mult(a._2, b._2))
-                }
-              }
-              case Right(b) => {
-                bs += b
-                as.foreach {
-                  a => emitter.emit((a._1._1, b._1._2), mult(a._2, b._2))
-                }
-              }
+        input.values foreach {
+          case Left(a) => {
+            as += a
+            bs.foreach {
+              b => emitter.emit((a._1._1, b._1._2), mult(a._2, b._2))
             }
           }
-        }).groupByKey.combine((a: Q, b: Q) => add(a, b))
-    }
+          case Right(b) => {
+            bs += b
+            as.foreach {
+              a => emitter.emit((a._1._1, b._1._2), mult(a._2, b._2))
+            }
+          }
+        }
+      }
+    }).combine[(Elem, Elem), Q]((a: Q, b: Q) => add(a, b))
+  }
 
   def matrixByVector[Elem: WireFormat: Ordering, V: WireFormat, Value: WireFormat, Q: WireFormat: Ordering](
     l: DMatrix[Elem, Value],

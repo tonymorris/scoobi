@@ -152,44 +152,44 @@ object Relational {
     val d1s: DList[(K, Either[A, B])] = d1 map { case (k, a1) => (k, Left(a1)) }
     val d2s: DList[(K, Either[A, B])] = d2 map { case (k, a2) => (k, Right(a2)) }
 
-    (d1s ++ d2s).groupByKey map {
-      case (k, as) => {
+    (d1s ++ d2s).groupByKey.list map {
+      case assoc => {
         val vb1 = new VectorBuilder[A]()
         val vb2 = new VectorBuilder[B]()
-        as foreach {
+        assoc.values foreach {
           case Left(a1) => vb1 += a1
           case Right(a2) => vb2 += a2
         }
-        (k, (vb1.result().toIterable, vb2.result().toIterable))
+        (assoc.key, (vb1.result().toIterable, vb2.result().toIterable))
       }
     }
   }
 
-  private def innerJoin[T, A, B] = new BasicDoFn[((T, Boolean), Iterable[Either[A, B]]), (T, (A, B))] {
-    def process(input: ((T, Boolean), Iterable[Either[A, B]]), emitter: Emitter[(T, (A, B))]) {
+  private def innerJoin[T, A, B] = new BasicDoFn[Association1[(T, Boolean), Either[A, B]], (T, (A, B))] {
+    def process(input: Association1[(T, Boolean), Either[A, B]], emitter: Emitter[(T, (A, B))]) {
       var alist = new ArrayBuffer[A]
 
-      for (v <- input._2) {
+      for (v <- input.values) {
         v match {
           case Left(a) => alist += a
-          case Right(b) => for (a <- alist) emitter.emit((input._1._1, (a, b)))
+          case Right(b) => for (a <- alist) emitter.emit((input.key._1, (a, b)))
         }
       }
     }
   }
 
-  private def rightOuterJoin[T, A, B] = new BasicDoFn[((T, Boolean), Iterable[Either[A, B]]), (T, (Option[A], B))] {
-    def process(input: ((T, Boolean), Iterable[Either[A, B]]), emitter: Emitter[(T, (Option[A], B))]) {
+  private def rightOuterJoin[T, A, B] = new BasicDoFn[Association1[(T, Boolean), Either[A, B]], (T, (Option[A], B))] {
+    def process(input: Association1[(T, Boolean), Either[A, B]], emitter: Emitter[(T, (Option[A], B))]) {
       var alist = new ArrayBuffer[A]
 
-      for (v <- input._2) {
+      for (v <- input.values) {
         v match {
           case Left(a) => alist += a
           case Right(b) => {
             if (alist.isEmpty)
-              emitter.emit((input._1._1, (None, b)))
+              emitter.emit((input.key._1, (None, b)))
             else
-              for (a <- alist) emitter.emit((input._1._1, (Some(a), b)))
+              for (a <- alist) emitter.emit((input.key._1, (Some(a), b)))
           }
         }
       }
@@ -199,13 +199,13 @@ object Relational {
   private def fullOuterJoin[T, A, B, V](
     hasLeft: (T, A) => V,
     hasRight: (T, B) => V,
-    hasBoth: (T, A, B) => V): BasicDoFn[((T, Boolean), Iterable[Either[A, B]]), (T, V)] = new BasicDoFn[((T, Boolean), Iterable[Either[A, B]]), (T, V)] {
-    def process(input: ((T, Boolean), Iterable[Either[A, B]]), emitter: Emitter[(T, V)]) {
+    hasBoth: (T, A, B) => V): BasicDoFn[Association1[(T, Boolean), Either[A, B]], (T, V)] = new BasicDoFn[Association1[(T, Boolean), Either[A, B]], (T, V)] {
+    def process(input: Association1[(T, Boolean), Either[A, B]], emitter: Emitter[(T, V)]) {
       val alist = new ArrayBuffer[A]
       var bseen = false
-      val key = input._1._1
+      val key = input.key._1
 
-      for (v <- input._2) {
+      for (v <- input.values) {
         v match {
           case Left(a) => alist += a
           case Right(b) => {
@@ -233,7 +233,7 @@ object Relational {
                        B : WireFormat,
                        V : WireFormat](
     d1: DList[(K, A)],
-    d2: DList[(K, B)])(dofn: BasicDoFn[((K, Boolean), Iterable[Either[A, B]]), (K, V)]): DList[(K, V)] = {
+    d2: DList[(K, B)])(dofn: BasicDoFn[Association1[(K, Boolean), Either[A, B]], (K, V)]): DList[(K, V)] = {
 
     /* Map left and right DLists to be of the same type. Label the left as 'true' and the
      * right as 'false'. Note the hack cause DList doesn't yet have the co/contravariance. */

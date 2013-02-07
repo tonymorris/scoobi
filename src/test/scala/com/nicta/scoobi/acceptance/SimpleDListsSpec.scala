@@ -39,37 +39,40 @@ class SimpleDListsSpec extends NictaSimpleJobs with CompNodeData {
   }
 
   "8. groupByKey + filter" >> { implicit sc: SC =>
-    DList((1, "hello"), (1, "world")).groupByKey.filter { case (k, v) => k >= 1 }.run must
+    DList((1, "hello"), (1, "world")).groupByKey.filter(_.key >= 1).run must
       be_==(Seq((1, Seq("hello", "world")))) or be_==(Seq((1, Seq("world", "hello"))))
   }
 
   "9. combine + filter" >> { implicit sc: SC =>
-    DList((1, Seq("hello", "world")), (2, Seq("universe"))).combine((_:String)+(_:String)).filter { case (k, v) => k >= 1 }.run.toSet must
+    DList((1, Seq("hello", "world")), (2, Seq("universe"))).combine[Int, String]((_:String)+(_:String)).filter { case (k, v) => k >= 1 }.run.toSet must
       be_==(Set((1, "helloworld"), (2, "universe"))) or
       be_==(Set((1, "worldhello"), (2, "universe")))
   }
+
   "10. groupByKey + combine + groupByKey" >> { implicit sc: SC =>
-    DList((1, "1")).filter(_ => true).groupByKey.combine((a: String, b: String) => a).groupByKey.filter(_ => true).run === Seq((1, Seq("1")))
+    DList((1, "1")).filter(_ => true).groupByKey.combine((a: String, _: String) => a).groupByKey.filter(_ => true).run === Seq((1, Seq("1")))
   }
+
   "11. groupByKey(flatten(groupByKey(l1), l1))" >> { implicit sc: SC =>
     val l0 = DList((1, "a"))
-    val l1 = l0.groupByKey // (1, Iterable("a"))
-    val l2 = l0.map { case (i, a) => (i, Iterable(a)) } // (1, Iterable("a"))
+    val l1 = l0.groupByKey.paired // (1, Iterable("a"))
+    val l2 = l0.map { case (i, a) => (i, core.Iterable1(a)) } // (1, Iterable1("a"))
     val l = (l1 ++ l2).groupByKey // (1, Iterable(Iterable("a"), Iterable("a")))
-    l.run must haveTheSameElementsAs(Seq((1, Iterable(Seq("a"), Seq("a")))))
+    l.run must haveTheSameElementsAs(Seq((1, core.Iterable1(Seq("a"), Seq("a")))))
   }
+
   "12. 2 parallelDos on a flatten" in { implicit sc: SC =>
     (DList("hello") ++ DList("world")).materialise.run.toSet === Set("hello", "world")
   }
   "13. join + pd + gbk + pd" in { implicit sc: SC =>
-    val list = (DList("a").materialise.map(_.mkString) join DList("b")).groupByKey.map { case (k, v) => (k, v) }
+    val list = (DList("a").materialise.map(_.mkString) join DList("b")).groupByKey.map(z => z)
 
     normalise(list.materialise.run) === "Vector((a,Vector(b)))"
   }
   "14. gbk1 with reducer + gbk2 with output feeding gbk1" >> { implicit sc: SC =>
     val l0 = DList((1, "a"))
-    val l1 = l0.groupByKey.filter(_ => true)
-    val l2 = l0.groupByKey.map { case (i, as) => "b" }.materialise
+    val l1 = l0.groupByKey.filter(_ => true).list
+    val l2 = l0.groupByKey.map(_ => "b").materialise
     val l3 = (l2 join l1).filter(_ => true)
 
     normalise(l1.run) === "Vector((1,Vector(a)))"
@@ -84,7 +87,7 @@ class SimpleDListsSpec extends NictaSimpleJobs with CompNodeData {
     val words = DList("apple", "orchard", "banana", "cat", "dancer")
     val letters = DList('a' -> 1, 'o' -> 4)
 
-    val grouped = words.groupBy(word => word.head)
+    val grouped = words.groupBy(word => word.head).paired
     normalise(letters.joinFullOuter(grouped).run) ===
       "Vector((a,(Some(1),Some(Vector(apple)))), (b,(None,Some(Vector(banana)))), (c,(None,Some(Vector(cat)))), (d,(None,Some(Vector(dancer)))), (o,(Some(4),Some(Vector(orchard)))))"
   }
@@ -100,8 +103,8 @@ class SimpleDListsSpec extends NictaSimpleJobs with CompNodeData {
   }
   "19. join + gbk" >> { implicit sc: ScoobiConfiguration =>
     def list = DList("hello").map(_.partition(_ > 'm'))
-    val l1 = list.groupByKey.map { case (k, vs) => k }. materialise
-    val l2 = l1.join(DList("hello")).map { case (vs, k) => k }
+    val l1 = list.groupByKey.keys. materialise
+    val l2 = l1.join(DList("hello")).map (_._2)
     normalise(l2.run) must not(throwAn[Exception])
   }
   "20. nested parallelDos" >> { implicit sc: ScoobiConfiguration =>
@@ -115,7 +118,7 @@ class SimpleDListsSpec extends NictaSimpleJobs with CompNodeData {
   }
   "22. parallelDo + combine" >> { implicit sc: ScoobiConfiguration =>
     val (l1, l2) = (DListImpl(source).map(_.partition(_ > 'a')), DListImpl(source).map(_.partition(_ > 'a')))
-    val l3 = l1.map { case (k, v) => (k, Seq.fill(2)(v)) }.combine((_:String) ++ (_:String))
+    val l3 = l1.map { case (k, v) => (k, Seq.fill(2)(v)) }.combine[String, String]((_:String) ++ (_:String))
     val l4 = (l2 ++ l3).map(_.toString)
     normalise(l4.run) === "Vector((strt,a), (strt,aa))"
   }
@@ -126,7 +129,7 @@ class SimpleDListsSpec extends NictaSimpleJobs with CompNodeData {
   }
   "24. join on a gbk" >> { implicit sc: ScoobiConfiguration =>
     val l1 = DList("hello").materialise
-    val l2 = l1 join DList("a" -> "b").groupByKey.map(_.toString)
+    val l2 = l1.join(DList("a" -> "b").groupByKey.list.map(_.toString))
     normalise(l2.run) === "Vector((Vector(hello),(a,Vector(b))))"
   }
   "25. flatMap" >> { implicit sc: ScoobiConfiguration =>
@@ -135,6 +138,6 @@ class SimpleDListsSpec extends NictaSimpleJobs with CompNodeData {
   }
   "26. (l1 ++ l2).groupByKey === (l1.groupByKey ++ l2.groupByKey).map { case (k, vs) => (k, vs.flatten) }" >> { implicit sc: ScoobiConfiguration =>
     val (l1, l2) = (DList(1 -> "hello", 2 -> "world"), DList(1 -> "hi", 2 -> "you"))
-    normalise((l1 ++ l2).groupByKey.run) === normalise((l1.groupByKey ++ l2.groupByKey).groupByKey.map { case (k, vs) => (k, vs.flatten) }.run)
+    normalise((l1 ++ l2).groupByKey.run) === normalise((l1.groupByKey ++ l2.groupByKey).groupByKey.mapValues(_.flatten).run)
   }
 }

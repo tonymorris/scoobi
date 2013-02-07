@@ -21,18 +21,20 @@ import testing.mutable.NictaSimpleJobs
 
 class WordCountSpec extends NictaSimpleJobs {
 
+
   "Counting words frequencies must return the frequency for each word" >> { implicit sc: SC =>
 
     val frequencies =
       DList(repeat("hello" -> 3, "world" -> 4, "universe" -> 2):_*).
       mapFlatten(_.split(" ")).map((_, 1)).
       groupByKey.
-      filter { case (word, n) => word.length < 6 }.
+      filter (_.key.length < 6).
       combine((i: Int, j: Int) => i + j)
 
     frequencies.run.sorted must_== Seq(("hello", 3), ("world", 4))
 
   }
+
   /** @return a Seq of strings where each key has been duplicated a number of times indicated by the value */
   def repeat(m: (String, Int)*): Seq[String] = m.flatMap { case (k, v) => Seq.fill(v)(k) }
 
