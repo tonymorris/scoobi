@@ -319,6 +319,10 @@ object Reduction {
 
     def short: Reduction[Short] =
       Reduction((c1, c2) => (c1 + c2).toShort)
+
+    def digit: Reduction[Digit] =
+      Reduction((d1, d2) => Digit.mod10Digit(d1.toInt + d2.toInt))
+
   }
 
   object Product {
@@ -354,5 +358,9 @@ object Reduction {
 
     def short: Reduction[Short] =
       Reduction((c1, c2) => (c1 * c2).toShort)
+
+    def digit: Reduction[Digit] =
+      Reduction((d1, d2) => Digit.mod10Digit(d1.toInt * d2.toInt))
+
   }
 }
