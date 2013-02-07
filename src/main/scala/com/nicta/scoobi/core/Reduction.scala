@@ -60,10 +60,10 @@ trait Reduction[A] {
     Reduction((x1, x2) => x1 match {
       case -\/(a1) => x2 match {
         case -\/(a2) => -\/(reduce(a1, a2))
-        case \/-(b1) => \/-(b1)
+        case \/-(b2) => \/-(b2)
       }
       case \/-(b1) => x2 match {
-        case -\/(a1) => -\/(a1)
+        case -\/(a2) => -\/(a2)
         case \/-(b2) => \/-(r reduce (b1, b2))
       }
     })
@@ -74,6 +74,37 @@ trait Reduction[A] {
   def pointwise[B]: Reduction[B => A] =
     Reduction((f, g) => b => reduce(f(b), g(b)))
 
+  def validation[B](b: Reduction[B]): Reduction[Validation[A, B]] =
+    Reduction((v1, v2) => v1 match {
+      case Failure(a1) => v2 match {
+        case Failure(a2) => Failure(reduce (a1, a2))
+        case Success(b2) => Success(b2)
+      }
+      case Success(b1) => v2 match {
+        case Failure(a2) => Failure(a2)
+        case Success(b2) => Success(b reduce (b1, b2))
+      }
+    })
+  /*
+          def +++[EE >: E, AA >: A](x: => Validation[EE, AA])(implicit M1: Semigroup[AA], M2: Semigroup[EE]): Validation[EE, AA] =
+    this match {
+      case Failure(a1) => x match {
+        case Failure(a2) => Failure(M2.append(a1, a2))
+        case Success(b2) => Failure(a1)
+      }
+      case Success(b1) => x match {
+        case Failure(a2) => Failure(a2)
+        case Success(b2) => Success(M1.append(b1, b2))
+      }
+    }
+
+  implicit def ValidationSemigroup[E: Semigroup, A: Semigroup]: Semigroup[Validation[E, A]] =
+    new Semigroup[Validation[E, A]] {
+      def append(a1: Validation[E, A], a2: => Validation[E, A]) =
+        a1 +++ a2
+    }
+
+   */
   def xmap[B](f: A => B, g: B => A): Reduction[B] =
     Reduction((b1, b2) => f(reduce(g(b1), g(b2))))
 
@@ -208,6 +239,9 @@ object Reduction {
   def differenceList[A]: Reduction[DList[A]] =
     Reduction(_ ++ _)
 
+  def nonEmptyList[A]: Reduction[NonEmptyList[A]] =
+    Reduction(_ append _)
+
   def intmap[A]: Reduction[collection.immutable.IntMap[A]] =
     Reduction(_ ++ _)
 
@@ -236,6 +270,9 @@ object Reduction {
     Reduction(_ ++ _)
 
   def stack[A]: Reduction[collection.immutable.Stack[A]] =
+    Reduction(_ ++ _)
+
+  def nodeseq: Reduction[xml.NodeSeq] =
     Reduction(_ ++ _)
 
   object Sum {
