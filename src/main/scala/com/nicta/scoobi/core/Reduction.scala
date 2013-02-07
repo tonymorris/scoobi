@@ -358,9 +358,15 @@ trait Reduction[A] {
     def apply(a1: A, a2: A, a3: A)(implicit E: Equal[A]): Boolean =
       reduce(reduce(a1, a2), a3) === reduce(a1, (reduce(a2, a3)))
 
-    def by[B](a1: A, a2: A, a3: A)(f: A => B)(implicit E: Equal[B]): Boolean = {
-      E contramap f equal (reduce(reduce(a1, a2), a3), reduce(a1, (reduce(a2, a3))))
-    }
+    def by[B](a1: A, a2: A, a3: A)(f: A => B)(implicit E: Equal[B]): Boolean =
+      f(reduce(reduce(a1, a2), a3)) === f(reduce(a1, (reduce(a2, a3))))
+
+    def on[B](b1: B, b2: B, b3: B)(f: B => A)(implicit E: Equal[A]): Boolean =
+      as(b1, b2, b3)(f)(E equal (_, _))
+
+    def as[B](b1: B, b2: B, b3: B)(f: B => A)(g: (A, A) => Boolean): Boolean =
+      g(reduce(reduce(f(b1), f(b2)), f(b3)), reduce(f(b1), (reduce(f(b2), f(b3)))))
+
   }
   def associative: Associative = new Associative
 

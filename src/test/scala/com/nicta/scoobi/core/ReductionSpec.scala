@@ -74,6 +74,11 @@ class ReductionSpec extends UnitSpecification with ScalaCheck {
         endo[Int].associative.by(x, y, z)(_(a))
     }
 
+  "endoE is associative" >> prop {
+      (x: Int => Int, y: Int => Int, z: Int => Int, a: Int) =>
+        endoE[Int].associative.as(x, y, z)(Endo(_))((x, y) => x(a) == y(a))
+    }
+
   "or is associative" >> prop {
       (x: Boolean, y: Boolean, z: Boolean) =>
         or.associative(x, y, z)
