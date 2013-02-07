@@ -244,6 +244,12 @@ object Reduction {
   def unit: Reduction[Unit] =
     constant(())
 
+  def first[A]: Reduction[A] =
+    Reduction((a, _) => a)
+
+  def last[A]: Reduction[A] =
+    Reduction((_, a) => a)
+
   def firstOption[A]: Reduction[Option[A]] =
     Reduction((a1, a2) => a1 orElse a2)
 
