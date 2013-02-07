@@ -104,6 +104,11 @@ class ReductionSpec extends UnitSpecification with ScalaCheck {
         ordering.associative(x, y, z)
     }
 
+  "comparable is associative" >> prop {
+      (x: String => Int, y: String => Int, z: String => Int, s1: String, s2: String) =>
+        comparable.associative.as(x, y, z)(f => new Comparable[String]{ def compareTo(a: String) = f(a) })((x, y) => (x compareTo s1) == (y compareTo s2))
+    }
+
   "string is associative" >> prop {
       (x: String, y: String, z: String) =>
         string.associative(x, y, z)
@@ -124,11 +129,6 @@ class ReductionSpec extends UnitSpecification with ScalaCheck {
         nonEmptyList[Int].associative(x, y, z)
     }
 
-  "big decimal sum is associative" >> prop {
-      (x: BigDecimal, y: BigDecimal, z: BigDecimal) =>
-        Sum.bigdecimal.associative(x, y, z)
-    }
-
   "big int sum is associative" >> prop {
       (x: BigInt, y: BigInt, z: BigInt) =>
         Sum.bigint.associative(x, y, z)
@@ -142,16 +142,6 @@ class ReductionSpec extends UnitSpecification with ScalaCheck {
   "char sum is associative" >> prop {
       (x: Char, y: Char, z: Char) =>
         Sum.char.associative(x, y, z)
-    }
-
-  "double sum is associative" >> prop {
-      (x: Double, y: Double, z: Double) =>
-        Sum.double.associative(x, y, z)
-    }
-
-  "float sum is associative" >> prop {
-      (x: Float, y: Float, z: Float) =>
-        Sum.float.associative(x, y, z)
     }
 
   "int sum is associative" >> prop {
@@ -174,11 +164,6 @@ class ReductionSpec extends UnitSpecification with ScalaCheck {
         Sum.digit.associative(x, y, z)
     }
 
-  "big decimal product is associative" >> prop {
-      (x: BigDecimal, y: BigDecimal, z: BigDecimal) =>
-        Product.bigdecimal.associative(x, y, z)
-    }
-
   "big int product is associative" >> prop {
       (x: BigInt, y: BigInt, z: BigInt) =>
         Product.bigint.associative(x, y, z)
@@ -192,16 +177,6 @@ class ReductionSpec extends UnitSpecification with ScalaCheck {
   "char product is associative" >> prop {
       (x: Char, y: Char, z: Char) =>
         Product.char.associative(x, y, z)
-    }
-
-  "double product is associative" >> prop {
-      (x: Double, y: Double, z: Double) =>
-        Product.double.associative(x, y, z)
-    }
-
-  "float product is associative" >> prop {
-      (x: Float, y: Float, z: Float) =>
-        Product.float.associative(x, y, z)
     }
 
   "int product is associative" >> prop {

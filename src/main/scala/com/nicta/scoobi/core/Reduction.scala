@@ -679,17 +679,6 @@ object Reduction {
    * Reductions that perform addition.
    */
   object Sum {
-    /**
-     * Reduction on big decimals by addition.
-     */
-    def bigdecimal: Reduction[BigDecimal] =
-      Reduction(_ + _)
-
-    /**
-     * Reduction on java big decimals by addition.
-     */
-    def jbigdecimal: Reduction[java.math.BigDecimal] =
-      Reduction(_ add _)
 
     /**
      * Reduction on big integers by addition.
@@ -714,18 +703,6 @@ object Reduction {
      */
     def char: Reduction[Char] =
       Reduction((c1, c2) => (c1 + c2).toChar)
-
-    /**
-     * Reduction on doubles by addition.
-     */
-    def double: Reduction[Double] =
-      Reduction(_ + _)
-
-    /**
-     * Reduction on floats by addition.
-     */
-    def float: Reduction[Float] =
-      Reduction(_ + _)
 
     /**
      * Reduction on integers by addition.
@@ -758,18 +735,6 @@ object Reduction {
    */
   object Product {
     /**
-     * Reduction on big decimals by multiplication.
-     */
-    def bigdecimal: Reduction[BigDecimal] =
-      Reduction(_ * _)
-
-    /**
-     * Reduction on java big decimals by multiplication.
-     */
-    def jbigdecimal: Reduction[java.math.BigDecimal] =
-      Reduction(_ multiply _)
-
-    /**
      * Reduction on big integers by multiplication.
      */
     def bigint: Reduction[BigInt] =
@@ -792,18 +757,6 @@ object Reduction {
      */
     def char: Reduction[Char] =
       Reduction((c1, c2) => (c1 * c2).toChar)
-
-    /**
-     * Reduction on doubles by multiplication.
-     */
-    def double: Reduction[Double] =
-      Reduction(_ * _)
-
-    /**
-     * Reduction on floats by multiplication.
-     */
-    def float: Reduction[Float] =
-      Reduction(_ * _)
 
     /**
      * Reduction on integers by multiplication.
