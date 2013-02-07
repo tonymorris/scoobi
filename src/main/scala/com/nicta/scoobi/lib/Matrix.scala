@@ -110,7 +110,7 @@ case class DRowWiseMatrix[Elem: WireFormat : Ordering, T : WireFormat](data: Gro
  * A col-wise matrix. This is an efficient representation for multiplying by an in-memory vector. The contents of each column
  * must be small enough to fit in memory
  */
-case class DColWiseMatrix[Elem, T](data: core.Grouped1[Elem, (Elem, T)]) {
+case class DColWiseMatrix[Elem, T](data: Grouped1[Elem, (Elem, T)]) {
   def row(implicit E: WireFormat[Elem], O: Ordering[Elem], W: WireFormat[T]): DRowWiseMatrix[Elem, T] =
     DRowWiseMatrix(data)
 }
