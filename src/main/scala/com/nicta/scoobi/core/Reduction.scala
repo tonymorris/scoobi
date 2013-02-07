@@ -29,6 +29,21 @@ trait Reduction[A] {
   def ***[B](r: Reduction[B]): Reduction[(A, B)] =
     zip(r)
 
+  def zip3[B, C](b: Reduction[B], c: Reduction[C]): Reduction[(A, B, C)] =
+    Reduction {
+      case ((a1, b1, c1), (a2, b2, c2)) => (reduce(a1, a2), b reduce (b1, b2), c reduce (c1, c2))
+    }
+
+  def zip4[B, C, D](b: Reduction[B], c: Reduction[C], d: Reduction[D]): Reduction[(A, B, C, D)] =
+    Reduction {
+      case ((a1, b1, c1, d1), (a2, b2, c2, d2)) => (reduce(a1, a2), b reduce (b1, b2), c reduce (c1, c2), d reduce (d1, d2))
+    }
+
+  def zip5[B, C, D, E](b: Reduction[B], c: Reduction[C], d: Reduction[D], e: Reduction[E]): Reduction[(A, B, C, D, E)] =
+    Reduction {
+      case ((a1, b1, c1, d1, e1), (a2, b2, c2, d2, e2)) => (reduce(a1, a2), b reduce (b1, b2), c reduce (c1, c2), d reduce (d1, d2), e reduce (e1, e2))
+    }
+
   def left[B](r: => Reduction[B]): Reduction[A \/ B] =
     Reduction((x1, x2) => x1 match {
       case -\/(a1) => x2 match {
@@ -143,6 +158,15 @@ object Reduction {
     Reduction((a1, a2) => a1 match {
       case Ordering.EQ => a2
       case _ => a1
+    })
+
+  def comparable[A]: Reduction[Comparable[A]] =
+    Reduction((c1, c2) => new Comparable[A] {
+      def compareTo(a: A) =
+        c1.compareTo(a) match {
+          case 0 => c2.compareTo(a)
+          case n => n
+        }
     })
 
   def comparator[A]: Reduction[java.util.Comparator[A]] =
