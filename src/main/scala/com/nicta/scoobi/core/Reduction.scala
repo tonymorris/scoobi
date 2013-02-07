@@ -181,13 +181,15 @@ trait Reduction[A] {
       Store(r.pointwise[A] reduce (s1 put _, s2 put _), reduce(s1.pos, s2.pos))
     )
 
+  def lift[F[+_]](implicit A: Apply[F]): Reduction[F[A]] =
+    Reduction((a1, a2) =>
+      A.apply2(a1, a2)(reduce(_, _)))
+
   def state[S]: Reduction[State[S, A]] =
-    Reduction((s1, s2) =>
-      s1 flatMap (a1 => s2 map (a2 => reduce(a1, a2))))
+    lift[({type lam[+a]=State[S, a]})#lam]
 
   def writer[W: Semigroup]: Reduction[Writer[W, A]] =
-    Reduction((w1, w2) =>
-      w1 flatMap (a1 => w2 map (a2 => reduce(a1, a2))))
+    lift[({type lam[+a]=Writer[W, a]})#lam]
 
   def xmap[B](f: A => B, g: B => A): Reduction[B] =
     Reduction((b1, b2) => f(reduce(g(b1), g(b2))))
