@@ -72,13 +72,44 @@ trait Reduction[A] {
     Reduction((a1, a2) => a1 flatMap (aa1 => a2 map (r reduce (aa1, _))))
 
   def pointwise[B]: Reduction[B => A] =
-    Reduction((f, g) => b => reduce(f(b), g(b)))
+    Reduction((g, h) => b => reduce(g(b), h(b)))
 
   def pointwise2[B, C]: Reduction[(B, C) => A] =
-    Reduction((f, g) => (b, c) => reduce(f(b, c), g(b, c)))
+    Reduction((g, h) => (b, c) => reduce(g(b, c), h(b, c)))
 
   def pointwise3[B, C, D]: Reduction[(B, C, D) => A] =
-    Reduction((f, g) => (b, c, d) => reduce(f(b, c, d), g(b, c, d)))
+    Reduction((g, h) => (b, c, d) => reduce(g(b, c, d), h(b, c, d)))
+
+  def pointwise4[B, C, D, E]: Reduction[(B, C, D, E) => A] =
+    Reduction((g, h) => (b, c, d, e) => reduce(g(b, c, d, e), h(b, c, d, e)))
+
+  def pointwise5[B, C, D, E, F]: Reduction[(B, C, D, E, F) => A] =
+    Reduction((g, h) => (b, c, d, e, f) => reduce(g(b, c, d, e, f), h(b, c, d, e, f)))
+
+  def pointwiseK[Q[+_], B](implicit A: Apply[Q]): Reduction[Kleisli[Q, B, A]] =
+    Reduction((g, h) => Kleisli(
+      b => A.apply2(g(b), h(b))(reduce(_, _))
+    ))
+
+  def pointwise2K[Q[+_], B, C](implicit A: Apply[Q]): Reduction[Kleisli[Q, (B, C), A]] =
+    Reduction((g, h) => Kleisli {
+      case (b, c) => A.apply2(g(b, c), h(b, c))(reduce(_, _))
+    })
+
+  def pointwise3K[Q[+_], B, C, D](implicit A: Apply[Q]): Reduction[Kleisli[Q, (B, C, D), A]] =
+    Reduction((g, h) => Kleisli {
+      case (b, c, d) => A.apply2(g(b, c, d), h(b, c, d))(reduce(_, _))
+    })
+
+  def pointwise4K[Q[+_], B, C, D, E](implicit A: Apply[Q]): Reduction[Kleisli[Q, (B, C, D, E), A]] =
+    Reduction((g, h) => Kleisli {
+      case (b, c, d, e) => A.apply2(g(b, c, d, e), h(b, c, d, e))(reduce(_, _))
+    })
+
+  def pointwise5K[Q[+_], B, C, D, E, F](implicit A: Apply[Q]): Reduction[Kleisli[Q, (B, C, D, E, F), A]] =
+    Reduction((g, h) => Kleisli {
+      case (b, c, d, e, f) => A.apply2(g(b, c, d, e, f), h(b, c, d, e, f))(reduce(_, _))
+    })
 
   def validation[B](b: Reduction[B]): Reduction[Validation[A, B]] =
     Reduction((v1, v2) => v1 match {
