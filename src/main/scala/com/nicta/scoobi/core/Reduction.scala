@@ -74,6 +74,12 @@ trait Reduction[A] {
   def pointwise[B]: Reduction[B => A] =
     Reduction((f, g) => b => reduce(f(b), g(b)))
 
+  def pointwise2[B, C]: Reduction[(B, C) => A] =
+    Reduction((f, g) => (b, c) => reduce(f(b, c), g(b, c)))
+
+  def pointwise3[B, C, D]: Reduction[(B, C, D) => A] =
+    Reduction((f, g) => (b, c, d) => reduce(f(b, c, d), g(b, c, d)))
+
   def validation[B](b: Reduction[B]): Reduction[Validation[A, B]] =
     Reduction((v1, v2) => v1 match {
       case Failure(a1) => v2 match {
