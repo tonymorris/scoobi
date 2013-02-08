@@ -16,7 +16,7 @@ class MscrsDefinitionSpec extends UnitSpecification with Groups with ThrownExpec
 
   "The gbks of a graph can be sorted in layers according to their dependencies"                                         ^
     "all the nodes in a layer cannot be parent of each other"                                                           ! g1().e1^
-  /* error("")
+    error("")/*
     "2 different layers have at least 2 nodes parent of each other"                                                     ! g1().e2^
     */
                                                                                                                         endp^
