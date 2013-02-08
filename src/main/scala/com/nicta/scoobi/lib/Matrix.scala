@@ -19,7 +19,7 @@ package lib
 import Scoobi._
 import scala.collection.mutable.ArrayBuffer
 import LinearAlgebra._
-import core.WireFormat
+import core.{WireFormat, Reduction}
 import WireFormat._
 
 /**
@@ -30,8 +30,8 @@ import WireFormat._
  */
 case class DVector[Elem: WireFormat : Ordering, T : WireFormat](data: DList[(Elem, T)]) {
   def byMatrix[V : WireFormat, 
-               Q : WireFormat : Ordering](m: DMatrix[Elem, V], mult: (T, V) => Q, add: (Q, Q) => Q): DVector[Elem, Q] = {
-    vectorByMatrix(this, m, mult, add)
+               Q : WireFormat : Ordering](m: DMatrix[Elem, V], mult: (T, V) => Q, red: Reduction[Q]): DVector[Elem, Q] = {
+    vectorByMatrix(this, m, mult, red)
   }
 }
 
@@ -48,8 +48,8 @@ case class InMemVector[Elem: WireFormat : Ordering, T : WireFormat](data: DObjec
     m: DColWiseMatrix[Elem, V],
     zero: Q,
     mult: (T, V) => Q,
-    add: (Q, Q) => Q): InMemVector[Elem, Q] =
-    vectorByMatrix(this, m, zero, mult, add)
+    red: Reduction[Q]): InMemVector[Elem, Q] =
+    vectorByMatrix(this, m, zero, mult, red)
 }
 
 object InMemDenseVector {
@@ -79,8 +79,8 @@ case class InMemDenseVector[T : WireFormat](data: DObject[IndexedSeq[T]]) {
     m: DColWiseMatrix[Int, V],
     zero: Q,
     mult: (T, V) => Q,
-    add: (Q, Q) => Q): InMemDenseVector[Q] =
-    vectorByMatrix(this, m, zero, mult, add)
+    red: Reduction[Q]): InMemDenseVector[Q] =
+    vectorByMatrix(this, m, zero, mult, red)
 }
 
 /**
@@ -93,14 +93,14 @@ case class DRowWiseMatrix[Elem: WireFormat : Ordering, T : WireFormat](data: DLi
     dv: InMemDenseVector[V],
     zero: R,
     mult: (T, V) => R,
-    add: (R, R) => R)(implicit ev: DRowWiseMatrix[Elem, T] <:< DRowWiseMatrix[Int, T],
+    red: Reduction[R])(implicit ev: DRowWiseMatrix[Elem, T] <:< DRowWiseMatrix[Int, T],
       vw: WireFormat[V],
-      rw: WireFormat[R]): InMemDenseVector[R] = matrixByVector(this, dv, zero, mult, add)
+      rw: WireFormat[R]): InMemDenseVector[R] = matrixByVector(this, dv, zero, mult, red)
       
   def byVector[V : WireFormat, R : WireFormat](
     dv: InMemVector[Elem, V],
     mult: (T, V) => R,
-    add: (R, R) => R): InMemVector[Elem, R] = matrixByVector(this, dv, mult, add)
+    red: Reduction[R]): InMemVector[Elem, R] = matrixByVector(this, dv, mult, red)
 }
 
 /**
@@ -119,34 +119,34 @@ case class DMatrix[Elem : WireFormat: Ordering, Value : WireFormat](data: DList[
   def byMatrix[V : WireFormat, Q : WireFormat](
     r: DMatrix[Elem, V],
     mult: (Value, V) => Q,
-    add: (Q, Q) => Q): DMatrix[Elem, Q] = matrixByMatrix(data, r, mult, add)
+    red: Reduction[Q]): DMatrix[Elem, Q] = matrixByMatrix(data, r, mult, red)
 
   /* triggers an expensive conversion */
   def byVector[V, R](
     dv: InMemDenseVector[V],
     zero: R,
     mult: (Value, V) => R,
-    add: (R, R) => R)(
+    red: Reduction[R])(
       implicit ev: DList[((Elem, Elem), Value)] <:< DList[((Int, Int), Value)],
       vm: WireFormat[V],
       rm: WireFormat[R]): InMemDenseVector[R] = {
 
     val tmp: DList[((Int, Int), Value)] = data
 
-    matrixByVector(tmp, dv, zero, mult, add) // TODO: use 'this' ?
+    matrixByVector(tmp, dv, zero, mult, red) // TODO: use 'this' ?
   }
 
   def byVector[V : WireFormat : Ordering, R : WireFormat: Ordering](
     dv: InMemVector[Elem, V],
     mult: (Value, V) => R,
-    add: (R, R) => R): InMemVector[Elem, R] =
-    matrixByVector(this, dv, mult, add)
+    red: Reduction[R]): InMemVector[Elem, R] =
+    matrixByVector(this, dv, mult, red)
     
     
   def byVector[V : WireFormat, Q: WireFormat : Ordering](
     v: DVector[Elem, V],
     mult: (Value, V) => Q,
-    add: (Q, Q) => Q): DVector[Elem, Q] = matrixByVector(this, v, mult, add)
+    red: Reduction[Q]): DVector[Elem, Q] = matrixByVector(this, v, mult, red)
 
 
   def transpose: DMatrix[Elem, Value] = DMatrix(this.data map { case ((r, c), v) => ((c, r), v) })
@@ -160,14 +160,14 @@ object LinearAlgebra {
     dv: InMemDenseVector[V],
     zero: R,
     mult: (T, V) => R,
-    add: (R, R) => R): InMemDenseVector[R] = matrixByVector(m, dv, zero, mult, add)
+    red: Reduction[R]): InMemDenseVector[R] = matrixByVector(m, dv, zero, mult, red)
 
   def matrixByVector[T, V, R](
     m: DRowWiseMatrix[Int, T],
     dv: InMemDenseVector[V],
     zero: R,
     mult: (T, V) => R,
-    add: (R, R) => R)(implicit tm: WireFormat[T],
+    red: Reduction[R])(implicit tm: WireFormat[T],
       vm: WireFormat[V],
       rm: WireFormat[R]): InMemDenseVector[R] = {
 
@@ -181,7 +181,7 @@ object LinearAlgebra {
             for (q <- vals if arr.contains(q._1))
               yield mult(q._2, arr(q._1))
 
-          val result = if (products.isEmpty) zero else products.reduce(add)
+          val result = if (products.isEmpty) zero else products.reduce(red.reduce)
 
           (elem, result)
         }
@@ -194,7 +194,7 @@ object LinearAlgebra {
     m: DRowWiseMatrix[Elem, T],
     dv: InMemVector[Elem, V],
     mult: (T, V) => R,
-    add: (R, R) => R): InMemVector[Elem, R] = {
+    red: Reduction[R]): InMemVector[Elem, R] = {
 
     val all = dv join m
 
@@ -206,7 +206,7 @@ object LinearAlgebra {
             for (q <- vals if arr.contains(q._1))
               yield mult(q._2, arr(q._1))
 
-          if (products.isEmpty) None else Some(elem, products.reduce(add))
+          if (products.isEmpty) None else Some(elem, products.reduce(red.reduce))
         }
       }
 
@@ -218,14 +218,14 @@ object LinearAlgebra {
     m: DColWiseMatrix[Int, T],
     zero: R,
     mult: (V, T) => R,
-    add: (R, R) => R): InMemDenseVector[R] = matrixByVector(m.data, dv, zero, (a: T, b: V) => mult(b, a), add)
+    red: Reduction[R]): InMemDenseVector[R] = matrixByVector(m.data, dv, zero, (a: T, b: V) => mult(b, a), red)
 
   def vectorByMatrix[Elem: WireFormat: Ordering, T: WireFormat, V: WireFormat, R: WireFormat](
     dv: InMemVector[Elem, T],
     m: DColWiseMatrix[Elem, V],
     zero: R,
     mult: (T, V) => R,
-    add: (R, R) => R): InMemVector[Elem, R] = matrixByVector(m.data, dv, (a: V, b: T) => mult(b, a), add)
+    red: Reduction[R]): InMemVector[Elem, R] = matrixByVector(m.data, dv, (a: V, b: T) => mult(b, a), red)
 
   /* Does an expensive conversion */
   def vectorByMatrix[T: WireFormat, V: WireFormat, R: WireFormat](
@@ -233,13 +233,13 @@ object LinearAlgebra {
     m: DMatrix[Int, T],
     zero: R,
     mult: (V, T) => R,
-    add: (R, R) => R): InMemDenseVector[R] = vectorByMatrix(dv, m, zero, mult, add)
+    red: Reduction[R]): InMemDenseVector[R] = vectorByMatrix(dv, m, zero, mult, red)
 
   def matrixBySparseFunc[Elem: WireFormat: Ordering, V: WireFormat, Value: WireFormat, Q: WireFormat](
     matrix: DMatrix[Elem, Value],
     generateRow: () => Map[Elem, V],
     mult: (Value, V) => Q,
-    add: (Q, Q) => Q): DMatrix[Elem, Q] =
+    r: Reduction[Q]): DMatrix[Elem, Q] =
     {
       val left = matrix.by(_._1._2)
 
@@ -254,14 +254,14 @@ object LinearAlgebra {
               }
             }
           }
-        }).groupByKey.combine((a: Q, b: Q) => add(a, b))
+        }).groupByKey.combine(r)
     }
 
   def matrixByDenseFunc[V: WireFormat, Value: WireFormat, Q: WireFormat](
     matrix: DMatrix[Int, Value],
     generateRow: () => Seq[V],
     mult: (Value, V) => Q,
-    add: (Q, Q) => Q): DMatrix[Int, Q] =
+    r: Reduction[Q]): DMatrix[Int, Q] =
     {
       val left = matrix.map(a => (a._1._2, (a._1._1,a._2)))
 
@@ -276,14 +276,14 @@ object LinearAlgebra {
               }
             }
           }
-        }).groupByKey.combine((a: Q, b: Q) => add(a, b))
+        }).groupByKey.combine(r)
     }
 
   def matrixByMatrix[Elem: WireFormat: Ordering, V: WireFormat, Value: WireFormat, Q: WireFormat](
     l: DMatrix[Elem, Value],
     r: DMatrix[Elem, V],
     mult: (Value, V) => Q,
-    add: (Q, Q) => Q): DMatrix[Elem, Q] = {
+    red: Reduction[Q]): DMatrix[Elem, Q] = {
 
     val left = l.by(_._1._2).map(x => (x._1, Left(x._2): Either[((Elem, Elem), Value), ((Elem, Elem), V)]))
       val right = r.by(_._1._1).map(x => (x._1, Right(x._2): Either[((Elem, Elem), Value), ((Elem, Elem), V)]))
@@ -309,30 +309,30 @@ object LinearAlgebra {
               }
             }
           }
-        }).groupByKey.combine((a: Q, b: Q) => add(a, b))
+        }).groupByKey.combine(red)
     }
 
   def matrixByVector[Elem: WireFormat: Ordering, V: WireFormat, Value: WireFormat, Q: WireFormat: Ordering](
     l: DMatrix[Elem, Value],
     r: DVector[Elem, V],
     mult: (Value, V) => Q,
-    add: (Q, Q) => Q): DVector[Elem, Q] = matrixByMatrix(l, r.map(x => ((x._1, x._1), x._2)), mult, add).map(x => (x._1._2, x._2))
+    red: Reduction[Q]): DVector[Elem, Q] = matrixByMatrix(l, r.map(x => ((x._1, x._1), x._2)), mult, red).map(x => (x._1._2, x._2))
 
   def vectorByMatrix[Elem: WireFormat: Ordering, V: WireFormat, Value: WireFormat, Q: WireFormat : Ordering](
     l: DVector[Elem, Value],
     r: DMatrix[Elem, V],
     mult: (Value, V) => Q,
-    add: (Q, Q) => Q): DVector[Elem, Q] = matrixByMatrix(l.map(x => ((x._1, x._1), x._2)), r, mult, add).map(x => (x._1._1, x._2))
+    red: Reduction[Q]): DVector[Elem, Q] = matrixByMatrix(l.map(x => ((x._1, x._1), x._2)), r, mult, red).map(x => (x._1._1, x._2))
 
   // work around a hadoop bug with combiners timing out...
   def matrixByMatrixTimeoutWorkaround[Elem: WireFormat: Ordering, V: WireFormat, Value: WireFormat, Q: WireFormat](
     l: DMatrix[Elem, Value],
     r: DMatrix[Elem, V],
     mult: (Value, V) => Q,
-    add: (Q, Q) => Q): DMatrix[Elem, Q] =
+    red: Reduction[Q]): DMatrix[Elem, Q] =
     (l.by(_._1._2) join r.by(_._1._1))
       .map { case (_, (a, b)) => ((a._1._1, b._1._2), mult(a._2, b._2)) }
       .groupByKey
-      .combine(add)
+      .combine(red)
 }
 

@@ -13,10 +13,16 @@ trait Reduction[A] {
   val reduce: (A, A) => A
 
   /**
-   * The binary associative operation.
+   * The binary associative operation. Alias for `-\`.
    */
   def apply(a1: A, a2: A): A =
     reduce(a1, a2)
+
+  /**
+   * The binary associative operation. Alias for `apply`.
+   */
+  def -\(a1: A, a2: A): A =
+    apply(a1, a2)
 
   /**
    * The binary associative operation in curried form.
@@ -454,6 +460,18 @@ object Reduction {
     Reduction((a1, a2) => O max (a1, a2))
 
   /**
+   * A reduction that produces the minimum value of its two arguments.
+   */
+  def minimumS[A](implicit O: math.Ordering[A]): Reduction[A] =
+    Reduction((a1, a2) => O min (a1, a2))
+
+  /**
+   * A reduction that produces the maximum value of its two arguments.
+   */
+  def maximumS[A](implicit O: math.Ordering[A]): Reduction[A] =
+    Reduction((a1, a2) => O max (a1, a2))
+
+  /**
    * A reduction that composes two functions.
    */
   def endo[A]: Reduction[A => A] =
@@ -478,39 +496,30 @@ object Reduction {
     Reduction(_ && _)
 
   /**
-   * Takes an equal instance to a reduction on equal instances.
+   * Takes a boolean reduction to a reduction on equal instances.
    */
-  def equal[A](implicit E: Equal[A]): Reduction[Equal[A]] =
+  def equal[A](r: Reduction[Boolean]): Reduction[Equal[A]] =
     Reduction((e1, e2) => new Equal[A] {
       def equal(a1: A, a2: A) =
-        E equal (a1, a2)
+        r.reduce(e1 equal (a1, a2), e2 equal (a1, a2))
     })
 
   /**
-   * Takes an equal instance to a reduction on unequal instances.
+   * Takes a boolean reduction to a reduction on unequal instances.
    */
-  def unequal[A](implicit E: Equal[A]): Reduction[Equal[A]] =
+  def unequal[A](r: Reduction[Boolean]): Reduction[Equal[A]] =
     Reduction((e1, e2) => new Equal[A] {
       def equal(a1: A, a2: A) =
-        !(E equal (a1, a2))
+        r.reduce(!(e1 equal (a1, a2)), !(e2 equal (a1, a2)))
     })
 
   /**
-   * Takes an order instance to a reduction on order instances.
+   * Takes an ordering reduction to a reduction on order instances.
    */
-  def order[A](implicit O: Order[A]): Reduction[Order[A]] =
+  def order[A](r: Reduction[Ordering]): Reduction[Order[A]] =
     Reduction((e1, e2) => new Order[A] {
       def order(a1: A, a2: A) =
-        O order (a1, a2)
-    })
-
-  /**
-   * Takes an show instance to a reduction on show instances.
-   */
-  def show[A](implicit S: Show[A]): Reduction[Show[A]] =
-    Reduction((e1, e2) => new Show[A] {
-      override def show(a: A) =
-        S show a
+        r.reduce(e1 order (a1, a2), e2 order (a1, a2))
     })
 
   /**

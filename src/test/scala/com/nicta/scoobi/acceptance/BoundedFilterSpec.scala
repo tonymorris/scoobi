@@ -18,6 +18,7 @@ package acceptance
 
 import Scoobi._
 import testing.mutable.NictaSimpleJobs
+import core.Reduction._
 
 class BoundedFilterSpec extends NictaSimpleJobs {
 
@@ -30,7 +31,7 @@ class BoundedFilterSpec extends NictaSimpleJobs {
       val upper = DObject(4)
 
       val ys = ((lower, upper) join xs).filter { case ((l, u), x) => x > l && x < u }.values
-      val total = ys.sum
+      val total = ys.reduce(Sum.int)
 
       total.run === 5
     }
@@ -40,7 +41,7 @@ class BoundedFilterSpec extends NictaSimpleJobs {
       val ints = Seq(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 
       val xs = ints.toDList
-      val average = (xs.sum, xs.size) map { case (t, s) => t / s }
+      val average = (xs.reduce(Sum.int), xs.size) map { case (t, s) => t / s }
       val bigger = (average join xs) filter { case (a, x) => x > a }
       bigger.values.run.sorted must_== ints.filter(_ > (ints.sum / ints.size))
 

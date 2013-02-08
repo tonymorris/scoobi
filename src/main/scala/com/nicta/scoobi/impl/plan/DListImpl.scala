@@ -59,10 +59,10 @@ class DListImpl[A](comp: ProcessNode) extends DList[A] {
   }
 
   def combine[K, V]
-      (f: (V, V) => V)
+      (red: Reduction[V])
       (implicit ev:   A <:< (K,Iterable[V]),
                 wfk: WireFormat[K],
-                wfv: WireFormat[V]): DList[(K, V)] = new DListImpl(Combine(comp, (a1: Any, a2: Any) => f(a1.asInstanceOf[V], a2.asInstanceOf[V]), wfk, wfv))
+                wfv: WireFormat[V]): DList[(K, V)] = new DListImpl(Combine(comp, (a1: Any, a2: Any) => red(a1.asInstanceOf[V], a2.asInstanceOf[V]), wfk, wfv))
 
   lazy val materialise: DObject[Iterable[A]] = new DObjectImpl(Materialise(comp, wireFormat[Iterable[A]]))
 

@@ -94,11 +94,6 @@ class ReductionSpec extends UnitSpecification with ScalaCheck {
         ordering.associative(x, y, z)
     }
 
-  "comparable is associative" >> prop {
-      (x: String => Int, y: String => Int, z: String => Int, s1: String, s2: String) =>
-        comparable.associative.as(x, y, z)(f => new Comparable[String]{ def compareTo(a: String) = f(a) })((x, y) => (x compareTo s1) == (y compareTo s2))
-    }
-
   "string is associative" >> prop {
       (x: String, y: String, z: String) =>
         string.associative(x, y, z)

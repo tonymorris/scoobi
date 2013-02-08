@@ -23,6 +23,7 @@ import Scoobi._
 import org.specs2.matcher.TerminationMatchers
 import org.specs2.specification.BeforeExample
 import org.kiama.attribution.Attribution
+import core.Reduction._
 
 class DListSpec extends NictaSimpleJobs with TerminationMatchers {
 
@@ -34,7 +35,7 @@ class DListSpec extends NictaSimpleJobs with TerminationMatchers {
 
   tag("issue 104")
   "Summing up an empty list should do something graceful" >> { implicit sc: SC =>
-    run(DList[Int]().sum) must throwAn[Exception](message = "the reduce operation is called on an empty list")
+    run(DList[Int]().reduce(Sum.int)) must throwAn[Exception](message = "the reduce operation is called on an empty list")
   }
 
   tag("issue 117")

@@ -6,6 +6,7 @@ import testing.{TestFiles, TempFiles}
 import Scoobi._
 import impl.plan.comp.CompNodeData
 import CompNodeData._
+import core.Reduction._
 
 class PersistSpec extends NictaSimpleJobs with ResultFiles {
   
@@ -19,7 +20,7 @@ class PersistSpec extends NictaSimpleJobs with ResultFiles {
     resultDir must containResults
   }
   "2. a single DObject" >> { implicit sc: ScoobiConfiguration =>
-    val o1 = DList(1, 2, 3).sum
+    val o1 = DList(1, 2, 3).reduce(Sum.int)
     o1.run === 6
   }
   "3. a list, materialised" >> { implicit sc: ScoobiConfiguration =>
@@ -85,7 +86,7 @@ class PersistSpec extends NictaSimpleJobs with ResultFiles {
     val plusOne: DList[Int] = list.map(_ + 1)
 
     // the sum of all values
-    val sum: DObject[Int] = list.sum
+    val sum: DObject[Int] = list.reduce(Sum.int)
     // the max of all values
     val max: DObject[Int] = list.max
 
@@ -101,7 +102,7 @@ class PersistSpec extends NictaSimpleJobs with ResultFiles {
     val plusOne: DList[Int] = list.map(_ + 1)
 
     // execute the computation graph for the 2 DObjects and one DList
-    val (sum, max, plus1) = run(list.sum, list.max, plusOne)
+    val (sum, max, plus1) = run(list.reduce(Sum.int), list.max, plusOne)
     (sum, max, plus1.normalise) === (6, 3, "Vector(2, 3, 4)")
   }
 
