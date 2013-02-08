@@ -149,7 +149,7 @@ object ParallelDo1 {
  * The Combine node type specifies the building of a CompNode as a result of applying an associative
  * function to the values of an existing key-values CompNode
  */
-case class Combine(in: CompNode, f: (Any, Any) => Any,
+case class Combine(in: CompNode, f: Reduction[Any],
                    wfk:   WireReaderWriter,
                    wfv:   WireReaderWriter,
                    nodeSinks:     Seq[Sink] = Seq(),
@@ -161,14 +161,14 @@ case class Combine(in: CompNode, f: (Any, Any) => Any,
   def updateSinks(f: Seq[Sink] => Seq[Sink]) = copy(nodeSinks = f(nodeSinks))
 
   /** combine values: this is used in a Reducer */
-  def combine(values: Iterable[Any]) = values.reduce(f)
+  def combine(values: Iterable[Any]) = values.reduce(f.reduce)
 
   /**
    * @return a ParallelDo node where the mapping uses the combine function to combine the Iterable[V] values
    */
   def toParallelDo = {
     val dofn = BasicDoFunction((env: Any, input: Any, emitter: EmitterWriter) => input match {
-      case (key, values: Iterable[_]) => emitter.write((key, values.reduce(f)))
+      case (key, values: Iterable[_]) => emitter.write((key, values.reduce(f.reduce)))
     })
     // Return(()) is used as the Environment because there's no need for a specific value here
     ParallelDo(Seq(in), Return.unit, dofn, pair(wfk, iterable(wfv)), pair(wfk, wfv))
