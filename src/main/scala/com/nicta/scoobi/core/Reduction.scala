@@ -505,7 +505,7 @@ object Reduction {
     })
 
   /**
-   * Takes an show instance to a reduction on show instances.
+   * Takes a show instance to a reduction on show instances.
    */
   def show[A](implicit S: Show[A]): Reduction[Show[A]] =
     Reduction((e1, e2) => new Show[A] {
