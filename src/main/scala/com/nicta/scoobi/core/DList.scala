@@ -58,7 +58,9 @@ trait DList[A] extends DataSinks with Persistent[Seq[A]] {
 
   /**Apply an associative function to reduce the collection of values to a single value in a
    * key-value-collection distributed list. */
-  def combine[K, V](f: (V, V) => V)(implicit ev: A <:< (K, Iterable[V]), wk: WireFormat[K], wv: WireFormat[V]): DList[(K, V)]
+  def combine[K, V](f: (V, V) => V)(implicit ev: A <:< (K, Iterable[V]), wk: WireFormat[K], wv: WireFormat[V]): DList[(K, V)] = combineR(Reduction(f))
+
+  def combineR[K, V](f: Reduction[V])(implicit ev: A <:< (K, Iterable[V]), wk: WireFormat[K], wv: WireFormat[V]): DList[(K, V)]
 
   @deprecated(message="use materialise instead", since="0.6.0")
   def materialize: DObject[Iterable[A]] = materialise
@@ -202,31 +204,34 @@ trait DList[A] extends DataSinks with Persistent[Seq[A]] {
 
   /**Reduce the elements of this distributed list using the specified associative binary operator. The
    * order in which the elements are reduced is unspecified and may be non-deterministic. */
-  def reduce(op: (A, A) => A): DObject[A] = {
-    /* First, perform in-mapper combining. */
-    val imc: DList[A] = parallelDo(new DoFn[A, A] {
-      var acc: A = _
-      var first = true
+  def reduce(op: (A, A) => A): DObject[A] =
+    reduceR(Reduction(op))
 
-      def setup() {}
+  def reduceR(op: Reduction[A]): DObject[A] = {
+      /* First, perform in-mapper combining. */
+      val imc: DList[A] = parallelDo(new DoFn[A, A] {
+        var acc: A = _
+        var first = true
 
-      def process(input: A, emitter: Emitter[A]) {
-        acc = if (first) input else op(acc, input)
-        first = false
-      }
+        def setup() {}
 
-      def cleanup(emitter: Emitter[A]) {
-        if (!first) emitter.emit(acc)
-        acc = null.asInstanceOf[A]
-        first = true
-      }
-    })
+        def process(input: A, emitter: Emitter[A]) {
+          acc = if (first) input else op(acc, input)
+          first = false
+        }
 
-    /* Group all elements together (so they go to the same reducer task) and then
-     * combine them. */
-    val x: DObject[Iterable[A]] = imc.groupBy(_ => 0).combine(op).map(_._2).materialise
-    x map (_.headOption getOrElse (sys.error("the reduce operation is called on an empty list")))
-  }
+        def cleanup(emitter: Emitter[A]) {
+          if (!first) emitter.emit(acc)
+          acc = null.asInstanceOf[A]
+          first = true
+        }
+      })
+
+      /* Group all elements together (so they go to the same reducer task) and then
+       * combine them. */
+      val x: DObject[Iterable[A]] = imc.groupBy(_ => 0).combineR(op).map(_._2).materialise
+      x map (_.headOption getOrElse (sys.error("the reduce operation is called on an empty list")))
+    }
 
   /**Multiply up the elements of this distribute list. */
   def product(implicit num: Numeric[A]): DObject[A] = reduce(num.times)
