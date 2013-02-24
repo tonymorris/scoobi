@@ -50,8 +50,7 @@ class DListSpec extends NictaSimpleJobs with TerminationMatchers {
     val q = simpleJoin(simpleJoin(a, b), simpleJoin(c, d))
     val res = simpleJoin(q, simpleJoin(q, e).groupByKey)
 
-    res.run //must haveTheSameElementsAs(res.run(configureForInMemory(ScoobiConfiguration())))
-    ok
+    normalise(res.run) === "Vector((12,Vector(12, 12)), (13,Vector(13, 13)), (14,Vector(14, 14)))"
   }
 
   tag("issue 119")
@@ -71,6 +70,11 @@ class DListSpec extends NictaSimpleJobs with TerminationMatchers {
     val bb = DList(6 to 10)
 
     (aa ++ bb).run.sorted must_== (1 to 10).toSeq
+  }
+
+  tag("issue 194")
+  "Length of an empty list should be zero" >> { implicit sc: SC =>
+     DList[Int]().length.run === 0
   }
 
   "DLists can be concatenated via reduce" >> {

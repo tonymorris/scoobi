@@ -1,3 +1,18 @@
+/**
+ * Copyright 2011,2012 National ICT Australia Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.nicta.scoobi
 package core
 
@@ -19,21 +34,22 @@ trait DataSink[K, V, B] extends Sink { outer =>
   lazy val id = ids.get
   lazy val stringId = id.toString
 
-  def outputFormat: Class[_ <: OutputFormat[K, V]]
-  def outputKeyClass: Class[K]
-  def outputValueClass: Class[V]
+  def outputFormat(implicit sc: ScoobiConfiguration): Class[_ <: OutputFormat[K, V]]
+  def outputKeyClass(implicit sc: ScoobiConfiguration): Class[K]
+  def outputValueClass(implicit sc: ScoobiConfiguration): Class[V]
   def outputConverter: OutputConverter[K, V, B]
   def outputCheck(implicit sc: ScoobiConfiguration)
   def outputConfigure(job: Job)(implicit sc: ScoobiConfiguration)
 
   def outputCompression(codec: CompressionCodec, compressionType: CompressionType = CompressionType.BLOCK) = new DataSink[K, V, B] {
-    def outputFormat: Class[_ <: OutputFormat[K, V]]                = outer.outputFormat
-    def outputKeyClass: Class[K]                                    = outer.outputKeyClass
-    def outputValueClass: Class[V]                                  = outer.outputValueClass
-    def outputConverter: OutputConverter[K, V, B]                   = outer.outputConverter
-    def outputCheck(implicit sc: ScoobiConfiguration)               { outer.outputCheck(sc) }
-    def outputConfigure(job: Job)(implicit sc: ScoobiConfiguration) { outer.outputConfigure(job) }
-    override def outputSetup(implicit configuration: Configuration) { outer.outputSetup }
+    def outputFormat(implicit sc: ScoobiConfiguration): Class[_ <: OutputFormat[K, V]] = outer.outputFormat
+    def outputKeyClass(implicit sc: ScoobiConfiguration): Class[K]                     = outer.outputKeyClass
+    def outputValueClass(implicit sc: ScoobiConfiguration): Class[V]                   = outer.outputValueClass
+    def outputConverter: OutputConverter[K, V, B]                                      = outer.outputConverter
+    def outputPath(implicit sc: ScoobiConfiguration): Option[Path]                     = outer.outputPath(sc)
+    def outputCheck(implicit sc: ScoobiConfiguration)                                  { outer.outputCheck(sc) }
+    def outputConfigure(job: Job)(implicit sc: ScoobiConfiguration)                    { outer.outputConfigure(job) }
+    override def outputSetup(implicit configuration: Configuration)                    { outer.outputSetup }
 
     /** configure the job so that the output is compressed */
     override def configureCompression(configuration: Configuration) = {
@@ -53,12 +69,6 @@ trait DataSink[K, V, B] extends Sink { outer =>
     val configuration = new Configuration
     configureCompression(configuration)
     configuration.getBoolean("mapred.output.compress", false)
-  }
-
-  def outputPath(implicit sc: ScoobiConfiguration) = {
-    val jobCopy = new Job(sc.configuration)
-    outputConfigure(jobCopy)
-    Option(FileOutputFormat.getOutputPath(jobCopy))
   }
 
   def outputSetup(implicit configuration: Configuration) {}
@@ -82,11 +92,11 @@ trait Sink { outer =>
   /** unique id for this Sink, as a string. Can be used to create a file path */
   def stringId: String
   /** The OutputFormat specifying the type of output for this DataSink. */
-  def outputFormat: Class[_ <: OutputFormat[_, _]]
+  def outputFormat(implicit sc: ScoobiConfiguration): Class[_ <: OutputFormat[_, _]]
   /** The Class of the OutputFormat's key. */
-  def outputKeyClass: Class[_]
+  def outputKeyClass(implicit sc: ScoobiConfiguration): Class[_]
   /** The Class of the OutputFormat's value. */
-  def outputValueClass: Class[_]
+  def outputValueClass(implicit sc: ScoobiConfiguration): Class[_]
   /** Maps the type consumed by this DataSink to the key-values of its OutputFormat. */
   def outputConverter: OutputConverter[_, _, _]
   /** Check the validity of the DataSink specification. */
@@ -158,9 +168,9 @@ object Bridge {
     def fromKeyValueConverter = source.fromKeyValueConverter
     private[scoobi] def read(reader: RecordReader[_,_], mapContext: InputOutputContext, read: Any => Unit) { source.read(reader, mapContext, read) }
 
-    def outputFormat = sink.outputFormat
-    def outputKeyClass = sink.outputKeyClass
-    def outputValueClass = sink.outputValueClass
+    def outputFormat(implicit sc: ScoobiConfiguration) = sink.outputFormat
+    def outputKeyClass(implicit sc: ScoobiConfiguration) = sink.outputKeyClass
+    def outputValueClass(implicit sc: ScoobiConfiguration) = sink.outputValueClass
     def outputConverter = sink.outputConverter
     def outputCheck(implicit sc: ScoobiConfiguration) { sink.outputCheck }
     def outputConfigure(job: Job)(implicit sc: ScoobiConfiguration) { sink.outputConfigure(job) }

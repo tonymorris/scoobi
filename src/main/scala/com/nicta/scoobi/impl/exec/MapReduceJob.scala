@@ -77,8 +77,6 @@ case class MapReduceJob(mscr: Mscr, layerId: Int)(implicit val configuration: Sc
 
   /** configure the Hadoop job */
   def configure = {
-    FileOutputFormat.setOutputPath(job, configuration.temporaryOutputDirectory(job))
-
     val jar = new JarBuilder
     job.getConfiguration.set("mapred.jar", configuration.temporaryJarFile.getAbsolutePath)
     configureKeysAndValues(jar)
@@ -88,6 +86,8 @@ case class MapReduceJob(mscr: Mscr, layerId: Int)(implicit val configuration: Sc
     configureJar(jar)
     cleanConfiguration(configuration)
     jar.close(configuration)
+
+    FileOutputFormat.setOutputPath(job, configuration.temporaryOutputDirectory(job))
 
     this
   }
@@ -145,7 +145,7 @@ case class MapReduceJob(mscr: Mscr, layerId: Int)(implicit val configuration: Sc
    *       a BridgeStore and add to JAR
    *     - add a named output for each output channel */
   private def configureReducers(jar: JarBuilder) {
-    mscr.sinks collect { case bs : BridgeStore[_]  => jar.addRuntimeClass(bs.rtClass) }
+    mscr.sinks collect { case bs : BridgeStore[_]  => jar.addRuntimeClass(bs.rtClass(ScoobiConfiguration(job.getConfiguration))) }
 
     mscr.outputChannels.foreach { out =>
       out.sinks.foreach(sink => ChannelOutputFormat.addOutputChannel(job, out.tag, sink))

@@ -1,3 +1,18 @@
+/**
+ * Copyright 2011,2012 National ICT Australia Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.nicta.scoobi
 package impl
 package exec
@@ -108,10 +123,10 @@ case class HadoopMode(sc: ScoobiConfiguration) extends Optimiser with MscrsDefin
     private def configureMscr = (mscr: Mscr) => {
       implicit val mscrConfiguration = sc.duplicate
 
-      ("Loading input nodes for mscr "+mscr.id+"\n"+mscr.inputNodes.mkString("\n")).debug
+      ("Loading input nodes for mscr "+mscr.id).debug
       mscr.inputNodes.foreach(load)
 
-      ("Configuring mscr "+mscr.id+"\n"+mscr.inputNodes.mkString("\n")).debug
+      ("Configuring mscr "+mscr.id).debug
       MapReduceJob(mscr, layer.id).configure
     }
 
@@ -130,7 +145,7 @@ case class HadoopMode(sc: ScoobiConfiguration) extends Optimiser with MscrsDefin
   /** @return the content of a Bridge as an Iterable */
   private def read(bs: Bridge): Any = {
     ("reading bridge "+bs.bridgeStoreId).debug
-    Vector(bs.readAsIterable(sc).toSeq:_*)
+    bs.readAsIterable(sc)
   }
 
   /** make sure that all inputs environments are fully loaded */

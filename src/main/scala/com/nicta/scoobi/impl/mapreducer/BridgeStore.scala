@@ -21,8 +21,7 @@ import org.apache.commons.logging.LogFactory
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.fs.FileSystem
 import org.apache.hadoop.fs.FileStatus
-import org.apache.hadoop.io.NullWritable
-import org.apache.hadoop.io.SequenceFile
+import org.apache.hadoop.io.{Writable, NullWritable, SequenceFile}
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat
 import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat
@@ -33,6 +32,7 @@ import core._
 import rtt._
 import io.Helper
 import ScoobiConfiguration._
+import org.apache.hadoop.conf.Configuration
 
 /** A bridge store is any data that moves between MSCRs. It must first be computed, but
   * may be removed once all successor MSCRs have consumed it. */
@@ -46,8 +46,7 @@ case class BridgeStore[A](bridgeStoreId: String, wf: WireReaderWriter)
   lazy val logger = LogFactory.getLog("scoobi.Bridge")
 
   /** rtClass will be created at runtime as part of building the MapReduce job. */
-  def rtClass(implicit sc: ScoobiConfiguration = new ScoobiConfigurationImpl) =
-    scalaz.Memo.mutableHashMapMemo((name: String) => ScoobiWritable(typeName, wf)).apply(typeName)
+  def rtClass(implicit sc: ScoobiConfiguration): RuntimeClass = ScoobiWritable(typeName, wf)
 
   /** type of the generated class for this Bridge */
   lazy val typeName = "BS" + bridgeStoreId
@@ -55,13 +54,13 @@ case class BridgeStore[A](bridgeStoreId: String, wf: WireReaderWriter)
   def path(implicit sc: ScoobiConfiguration) = new Path(sc.workingDirectory, "bridges/" + bridgeStoreId)
 
   /* Output (i.e. input to bridge) */
-  val outputFormat = classOf[SequenceFileOutputFormat[NullWritable, ScoobiWritable[A]]]
-  val outputKeyClass = classOf[NullWritable]
-  def outputValueClass = rtClass.clazz.asInstanceOf[Class[ScoobiWritable[A]]]
+  def outputFormat(implicit sc: ScoobiConfiguration) = classOf[SequenceFileOutputFormat[NullWritable, ScoobiWritable[A]]]
+  def outputKeyClass(implicit sc: ScoobiConfiguration) = classOf[NullWritable]
+  def outputValueClass(implicit sc: ScoobiConfiguration) = rtClass(sc).clazz.asInstanceOf[Class[ScoobiWritable[A]]]
   def outputCheck(implicit sc: ScoobiConfiguration) {}
-  def outputConfigure(job: Job)(implicit sc: ScoobiConfiguration) {
-    FileOutputFormat.setOutputPath(job, path)
-  }
+  def outputConfigure(job: Job)(implicit sc: ScoobiConfiguration) {}
+  def outputPath(implicit sc: ScoobiConfiguration) = Some(path)
+
   lazy val outputConverter = new ScoobiWritableOutputConverter[A](typeName)
 
 
@@ -92,6 +91,10 @@ case class BridgeStore[A](bridgeStoreId: String, wf: WireReaderWriter)
    * at a time
    */
   def readAsIterable(implicit sc: ScoobiConfiguration): Iterable[A] = new Iterable[A] {
+    /** instantiate a ScoobiWritable from the Writable class generated for this BridgeStore */
+    lazy val value: ScoobiWritable[A] =
+      rtClass(sc).clazz.newInstance.asInstanceOf[ScoobiWritable[A]]
+
     def iterator = new Iterator[A] {
 
       val fs = FileSystem.get(path.toUri, sc)
@@ -101,9 +104,6 @@ case class BridgeStore[A](bridgeStoreId: String, wf: WireReaderWriter)
 
       val key = NullWritable.get
 
-      /** instantiate a ScoobiWritable from the Writable class generated for this BridgeStore */
-      lazy val value: ScoobiWritable[A] =
-        rtClass.clazz.newInstance.asInstanceOf[ScoobiWritable[A]]
 
       var remainingReaders = readers.toList
       var empty = if (readers.isEmpty) true else !readNext()

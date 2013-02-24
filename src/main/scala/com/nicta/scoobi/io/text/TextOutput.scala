@@ -40,11 +40,11 @@ object TextOutput {
 
   def textFileSink[A : Manifest](path: String, overwrite: Boolean = false) = {
     new DataSink[NullWritable, A, A] {
-      private val outputPath = new Path(path)
+      private val output = new Path(path)
 
-      val outputFormat = classOf[TextOutputFormat[NullWritable, A]]
-      val outputKeyClass = classOf[NullWritable]
-      val outputValueClass = implicitly[Manifest[A]] match {
+      def outputFormat(implicit sc: ScoobiConfiguration) = classOf[TextOutputFormat[NullWritable, A]]
+      def outputKeyClass(implicit sc: ScoobiConfiguration) = classOf[NullWritable]
+      def outputValueClass(implicit sc: ScoobiConfiguration) = implicitly[Manifest[A]] match {
         case Manifest.Boolean => classOf[java.lang.Boolean].asInstanceOf[Class[A]]
         case Manifest.Char    => classOf[java.lang.Character].asInstanceOf[Class[A]]
         case Manifest.Short   => classOf[java.lang.Short].asInstanceOf[Class[A]]
@@ -57,19 +57,18 @@ object TextOutput {
       }
 
       def outputCheck(implicit sc: ScoobiConfiguration) {
-        if (Helper.pathExists(outputPath)(sc.configuration) && !overwrite) {
-            throw new FileAlreadyExistsException("Output path already exists: " + outputPath)
-        } else logger.info("Output path: " + outputPath.toUri.toASCIIString)
+        if (Helper.pathExists(output)(sc.configuration) && !overwrite) {
+            throw new FileAlreadyExistsException("Output path already exists: " + output)
+        } else logger.info("Output path: " + output.toUri.toASCIIString)
       }
 
-      def outputConfigure(job: Job)(implicit sc: ScoobiConfiguration) {
-        FileOutputFormat.setOutputPath(job, outputPath)
-      }
+      def outputPath(implicit sc: ScoobiConfiguration) = Some(output)
+      def outputConfigure(job: Job)(implicit sc: ScoobiConfiguration) {}
 
       override def outputSetup(implicit configuration: Configuration) {
-        if (Helper.pathExists(outputPath)(configuration) && overwrite) {
-          logger.info("Deleting the pre-existing output path: " + outputPath.toUri.toASCIIString)
-          Helper.deletePath(outputPath)(configuration)
+        if (Helper.pathExists(output)(configuration) && overwrite) {
+          logger.info("Deleting the pre-existing output path: " + output.toUri.toASCIIString)
+          Helper.deletePath(output)(configuration)
         }
       }
 

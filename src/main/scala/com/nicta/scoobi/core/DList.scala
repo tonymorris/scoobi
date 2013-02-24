@@ -110,6 +110,9 @@ trait DList[A] extends DataSinks with Persistent[Seq[A]] {
       emitter.emit(input)
     })
 
+  /** the withFilter method */
+  def withFilter(p: A => Boolean): DList[A] = filter(p)
+
   /** Keep elements from the distributed list that do not pass a specified predicate function */
   def filterNot(p: A => Boolean): DList[A] = filter(p andThen (!_))
 
@@ -227,6 +230,12 @@ trait DList[A] extends DataSinks with Persistent[Seq[A]] {
     val x: DObject[Iterable[A]] = imc.groupBy(_ => 0).combine(r).map(_._2).materialise
     x map (_.headOption getOrElse (sys.error("the reduce operation is called on an empty list")))
   }
+
+  /**Multiply up the elements of this distribute list. */
+  def product(implicit num: Numeric[A]): DObject[A] = reduce(Reduction(num.times))
+
+  /**Sum up the elements of this distribute list. */
+  def sum(implicit num: Numeric[A]): DObject[A] = reduce(Reduction(num.plus))
 
   /**The length of the distributed list. */
   def length: DObject[Int] = map(_ => 1).reduce(Reduction.Sum.int)
