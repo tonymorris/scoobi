@@ -20,6 +20,7 @@ import org.apache.hadoop.io.Text
 
 import testing.mutable.NictaSimpleJobs
 import Scoobi._
+import impl.plan.comp.CompNodeData._
 import org.specs2.matcher.TerminationMatchers
 import org.specs2.specification.BeforeExample
 import org.kiama.attribution.Attribution
@@ -50,7 +51,7 @@ class DListSpec extends NictaSimpleJobs with TerminationMatchers {
     val q = simpleJoin(simpleJoin(a, b), simpleJoin(c, d))
     val res = simpleJoin(q, simpleJoin(q, e).groupByKey)
 
-    impl.plan.comp.CompNodeData.normalise(res.run) === "Vector((12,Vector(12, 12)), (13,Vector(13, 13)), (14,Vector(14, 14)))"
+    normalise(res.run) === "Vector((12,Vector(12, 12)), (13,Vector(13, 13)), (14,Vector(14, 14)))"
   }
 
   tag("issue 119")
