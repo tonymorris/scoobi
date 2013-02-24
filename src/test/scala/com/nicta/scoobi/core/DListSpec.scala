@@ -50,7 +50,7 @@ class DListSpec extends NictaSimpleJobs with TerminationMatchers {
     val q = simpleJoin(simpleJoin(a, b), simpleJoin(c, d))
     val res = simpleJoin(q, simpleJoin(q, e).groupByKey)
 
-    normalise(res.run) === "Vector((12,Vector(12, 12)), (13,Vector(13, 13)), (14,Vector(14, 14)))"
+    impl.plan.comp.CompNodeData.normalise(res.run) === "Vector((12,Vector(12, 12)), (13,Vector(13, 13)), (14,Vector(14, 14)))"
   }
 
   tag("issue 119")
