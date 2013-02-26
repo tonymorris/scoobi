@@ -70,7 +70,7 @@ trait CompNodeData extends Data with ScalaCheckMatchers with CommandLineArgument
   def genObject(depth: Int = 1): Gen[DObject[String]] =
     if (depth <= 1) DObjects("start")
     else            Gen.oneOf(genList(depth - 1).map(l => l.materialise.map(normalise)),
-                              ^(genObject(depth / 2), genObject(depth / 2))((_ zip _)).map(o => o.map(_.toString))).memo
+                              ^(genObject(depth / 2), genObject(depth / 2))((_ zip _)).map(_.map(_.toString))).memo
 
   /** lists of elements with a type (K, V) */
   def genList2(depth: Int = 1): Gen[DList[(String, String)]] =
@@ -118,7 +118,7 @@ trait CompNodeFactory extends Scope {
   def load                             = loadWith("start")
   def aRoot(nodes: CompNode*)          = Root(nodes)
   def rt                               = Return("", wireFormat[String])
-  def cb(in: CompNode)                 = Combine(in, string.xmap(z => z, _.toString), wireFormat[String], wireFormat[String])
+  def cb(in: CompNode)                 = Combine(in, string.mapIn(_.toString), wireFormat[String], wireFormat[String])
   def gbk(in: CompNode): GroupByKey    = GroupByKey(in, wireFormat[String], grouping[String], wireFormat[String])
   def gbk(sink: Sink): GroupByKey      = gbk(load).addSink(sink).asInstanceOf[GroupByKey]
   def mt(in: ProcessNode)              = Materialise(in, wireFormat[Iterable[String]])

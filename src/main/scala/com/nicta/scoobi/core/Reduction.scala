@@ -325,6 +325,18 @@ trait Reduction[A] {
     Reduction((b1, b2) => f(reduce(g(b1), g(b2))))
 
   /**
+   * Maps a function on the inputs to a reduction to produce a reduction.
+   */
+  def mapIn(g: A => A): Reduction[A] =
+    xmap(identity, g)
+
+  /**
+   * Maps a function on the output of a reduction to produce a reduction.
+   */
+  def mapOut(f: A => A): Reduction[A] =
+    xmap(f, identity)
+
+  /**
    * Maps a bijection on a reduction to produce a function.
    */
   def biject[B](b: Bijection[A, B]): Reduction[B] =
