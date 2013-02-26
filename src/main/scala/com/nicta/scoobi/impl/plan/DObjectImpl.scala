@@ -31,7 +31,7 @@ class DObjectImpl[A](comp: ValueNode) extends DObject[A] {
   def getComp: C = comp
 
   def map[B : WireFormat](f: A => B): DObject[B] =
-    new DObjectImpl(Op(comp, Return.unit, (a: Any, any: Any) => f(a.asInstanceOf[A]), wireFormat[B]))
+    new DObjectImpl(Op(comp, Return.unit, (a: Any, _: Any) => f(a.asInstanceOf[A]), wireFormat[B]))
 
   def join[B : WireFormat](list: DList[B]): DList[(A, B)] = {
     val dofn = new DoFunction {
