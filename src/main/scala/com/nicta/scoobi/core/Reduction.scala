@@ -343,7 +343,7 @@ trait Reduction[A] {
     xmap(b to _, b from _)
 
   /**
-   * Maps a single function on a reduction to produce a function.
+   * Maps a function on the inputs and output of a reduction to produce a function.
    */
   def on(f: A => A): Reduction[A] =
     xmap(f, f)
