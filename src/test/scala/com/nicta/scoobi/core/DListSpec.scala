@@ -21,8 +21,9 @@ import org.apache.hadoop.io.Text
 import testing.mutable.NictaSimpleJobs
 import Scoobi._
 import org.specs2.matcher.TerminationMatchers
-import org.specs2.specification.BeforeExample
-import org.kiama.attribution.Attribution
+import impl.plan.comp.CompNodeData._
+import impl.plan.comp.Optimiser
+import impl.plan.DListImpl
 
 class DListSpec extends NictaSimpleJobs with TerminationMatchers {
 
@@ -30,17 +31,6 @@ class DListSpec extends NictaSimpleJobs with TerminationMatchers {
   "a DList can be created and persisted with some Text" >> { implicit sc: SC =>
     val list = DList((new Text("key1"), new Text("value1")), (new Text("key2"), new Text("value2")))
     run(list).map(_.toString).sorted must_== Seq("(key1,value1)", "(key2,value2)")
-  }
-
-  tag("issue 104")
-  "Summing up an empty list should do something graceful" >> { implicit sc: SC =>
-    run(DList[Int]().sum) must throwAn[Exception](message = "the reduce operation is called on an empty list")
-  }
-
-  tag("issue 117")
-  "A groupByKey followed by a groupByKey must be ok" >> { implicit sc: SC =>
-    val list = DList.tabulate(5)((n: Int) => ("hello" -> "world")).groupByKey.groupByKey.list
-    run(list).toString.split(", ").filter { case w => w contains "world" } must have size(5)
   }
 
   tag("issue 117")
@@ -55,20 +45,7 @@ class DListSpec extends NictaSimpleJobs with TerminationMatchers {
     val q = simpleJoin(simpleJoin(a, b), simpleJoin(c, d))
     val res = simpleJoin(q, simpleJoin(q, e).groupByKey.paired)
 
-    res.run must haveTheSameElementsAs(res.run(configureForInMemory(ScoobiConfiguration())))
-  }
-
-  tag("issue 127")
-  "There must be no cyclic execution" >> { implicit sc: SC =>
-    val input = fromKeyValues("k1,1", "k2,2")
-
-    val inputGrouped = input.groupBy(_._1).paired
-    val inputGroupedDifferently = input.groupBy(_._2).paired
-    val inputGroupedAsDObject = inputGrouped.materialise
-
-    val dObjectJoinedToInputGroupedDiff = (inputGroupedAsDObject join inputGroupedDifferently)
-
-    run(dObjectJoinedToInputGroupedDiff) must terminate(sleep = 60.seconds)
+    normalise(res.run) === "Vector((12,Vector(12, 12)), (13,Vector(13, 13)), (14,Vector(14, 14)))"
   }
 
   tag("issue 119")
@@ -88,6 +65,11 @@ class DListSpec extends NictaSimpleJobs with TerminationMatchers {
     val bb = DList(6 to 10)
 
     (aa ++ bb).run.sorted must_== (1 to 10).toSeq
+  }
+
+  tag("issue 194")
+  "Length of an empty list should be zero" >> { implicit sc: SC =>
+     DList[Int]().length.run === 0
   }
 
   "DLists can be concatenated via reduce" >> {

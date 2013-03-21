@@ -1,3 +1,18 @@
+/**
+ * Copyright 2011,2012 National ICT Australia Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.nicta.scoobi
 package impl
 package plan
@@ -46,7 +61,7 @@ trait OutputChannel {
 /**
  * Implementation of an OutputChannel for a Mscr
  */
-trait MscrOutputChannel extends OutputChannel {
+trait MscrOutputChannel extends OutputChannel { outer =>
   protected implicit lazy val logger = LogFactory.getLog("scoobi.OutputChannel")
 
   override def equals(a: Any) = a match {
@@ -61,6 +76,8 @@ trait MscrOutputChannel extends OutputChannel {
   protected var emitter: EmitterWriter = _
 
   def setup(channelOutput: ChannelOutputFormat)(implicit configuration: Configuration) {
+    logger.info("Outputs are " + sinks.map(_.outputPath(ScoobiConfiguration(configuration))).mkString("\n"))
+
     sinks.foreach(_.outputSetup(configuration))
     emitter = createEmitter(channelOutput)
   }
@@ -70,17 +87,22 @@ trait MscrOutputChannel extends OutputChannel {
     val fs = configuration.fileSystem
     import fileSystems._
 
+    outer.logger.debug("outputs files are "+outputFiles.mkString("\n") )
     // copy the each result file to its sink
     sinks.foreach { sink =>
       sink.outputPath foreach { outDir =>
-        fs.mkdirs(outDir)
-        outputFiles.filter(isResultFile(tag, sink.id)).foreach(moveTo(outDir))
+        mkdir(outDir)
+        outer.logger.debug("creating directory "+outDir)
+
+        val outputs = outputFiles.filter(isResultFile(tag, sink.id))
+        outer.logger.debug("outputs result files for tag "+tag+" and sink id "+sink.id+" are "+outputs.map(_.getName).mkString("\n") )
+        outputs.foreach(moveTo(outDir))
       }
     }
     // copy the success file to every output directory
     outputFiles.find(_.getName ==  "_SUCCESS").foreach { successFile =>
       sinks.flatMap(_.outputPath).foreach { outDir =>
-        fs.mkdirs(outDir)
+        mkdir(outDir)
         copyTo(outDir)(configuration)(successFile)
       }
     }
@@ -100,7 +122,7 @@ trait MscrOutputChannel extends OutputChannel {
   }
 
   /** use the output converter of a sink to convert a value to a key/value */
-  protected def convert(sink: Sink, x: Any) = sink.outputConverter.asInstanceOf[ToKeyValueConverter].asKeyValue(x)
+  protected def convert(sink: Sink, x: Any)(implicit configuration: Configuration) = sink.outputConverter.asInstanceOf[ToKeyValueConverter].asKeyValue(x)
 
   /** create a ScoobiConfiguration from a Hadoop one */
   protected def scoobiConfiguration(configuration: Configuration): ScoobiConfiguration = ScoobiConfigurationImpl(configuration)

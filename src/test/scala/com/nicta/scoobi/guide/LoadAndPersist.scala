@@ -20,7 +20,7 @@ import testing.mutable.NictaSimpleJobs
 import Scoobi._
 import com.nicta.scoobi.impl.plan.comp.CompNodeData._
 
-class LoadAndPersist extends ScoobiPage { def is = "Loading and persisting data".title^
+class LoadAndPersist extends ScoobiPage { def is = "Load and persist data".title^
   """
 `DList` objects are merely nodes in a graph describing a series of data computation we want to perform. However, at some point we need to specify what the inputs and outputs to that computation are. In the [WordCount example](Application.html) we simply use in memory data and we print out the result of the computations. However the data used by Hadoop jobs is generally *loaded* from files and the results *persisted* to files. Let's see how to specify this.
 
@@ -242,6 +242,23 @@ With the code above the intermediary results will be written to the same output 
      }
      persist(iterate6(ints))
 
+#### Checkpoints
+
+When you have a big pipeline of consecutive computations it can be very time-consuming to start the process all over again if you've just changed some function down the track.
+
+In order to avoid this you can create *checkpoints*, that is sinks which will persist data in between executions:
+
+     // before
+     val list = DList(1, 2, 3).map(_ + 1).
+                               filter(isEven)
+
+     // after
+     val list = DList(1, 2, 3).map(_ + 1).toAvroFile("path", overwrite = true).checkpoint.
+                               filter(isEven)
+
+If you run the `after` program twice, the second time the program is run, only the `filter` operation will be executed taking its input data from the saved Avro file.
+
+*Important limitation*: you can't use a `Text` sink as a checkpoint because Text file sinks can't not be used as source files.
 
   """ ^ end
 

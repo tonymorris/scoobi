@@ -1,5 +1,3 @@
-
-## Welcome!
 ## ReadMe
 
 [Hadoop MapReduce](http://hadoop.apache.org/) is awesome, but it seems a little bit crazy when you have to write [this](http://wiki.apache.org/hadoop/WordCount) to count words. Wouldn't it be nicer if you could simply write what you want to do:
@@ -12,7 +10,7 @@ val counts = lines.flatMap(_.split(" "))
                 .groupByKey
                 .combine(_+_)
 
-persist(toTextFile(counts, "hdfs://out/...", overwrite=true))
+persist(counts.toTextFile("hdfs://out/...", overwrite=true))
 ```
 
 This is what Scoobi is all about. Scoobi is a Scala library that focuses on making you more productive at building Hadoop applications. It stands on the functional programming shoulders of Scala and allows you to just write **what** you want rather than **how** to do it.
@@ -48,12 +46,16 @@ The user mailing list is at <http://groups.google.com/group/scoobi-users>. Pleas
 
 ### Community
 
- * [![Build Status](https://secure.travis-ci.org/NICTA/scoobi.png)](http://travis-ci.org/NICTA/scoobi)
  * [Issues](https://github.com/NICTA/scoobi/issues)
  * [Change history](http://notes.implicit.ly/tagged/scoobi)
  * [Source code (github)](https://github.com/NICTA/scoobi)
- * [API Documentation](http://nicta.github.com/scoobi/api/SCOOBI-0.5.0-cdh4/index.html)
- * [Examples](https://github.com/NICTA/scoobi/tree/SCOOBI-0.5.0-cdh4/examples)
+ * [API Documentation](http://nicta.github.com/scoobi/api/SCOOBI-0.6.0-cdh4/index.html)
+ * [Examples](https://github.com/NICTA/scoobi/tree/SCOOBI-0.6.0-cdh4/examples)
  * User Guide for the [SNAPSHOT](http://nicta.github.com/scoobi/guide-SNAPSHOT/guide/User%20Guide.html) version ([latest api](http://nicta.github.com/scoobi/api/master/scala/index.html))
  * Mailing Lists: [scoobi-users](http://groups.google.com/group/scoobi-users), [scoobi-dev](http://groups.google.com/group/scoobi-dev)
   
+                       
+                       
+                     
+                   
+                 

@@ -1,3 +1,18 @@
+/**
+ * Copyright 2011,2012 National ICT Australia Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.nicta.scoobi
 package impl
 package plan
@@ -40,10 +55,11 @@ trait Optimiser extends CompNodes with Rewriter {
    */
   def parDoFuse = repeat(oncebu(rule {
     case p2 @ ParallelDo((p1 @ ParallelDo1(_)) +: rest,_,_,_,_,_,_) if
-      uses(p1).filterNot(_ == p2).isEmpty                 &&
-      rest.isEmpty                                        &&
-      !p1.bridgeStore.map(hasBeenFilled).getOrElse(false) &&
-      p1.nodeSinks.isEmpty                                   => ParallelDo.fuse(p1.debug("parDoFuse with "+p2), p2)
+      uses(p1).filterNot(_ == p2).isEmpty                  &&
+      rest.isEmpty                                         &&
+      !p1.bridgeStore.map(hasBeenFilled).getOrElse(false)  &&
+      !p1.bridgeStore.map(_.isCheckpoint).getOrElse(false) &&
+      p1.nodeSinks.isEmpty                                 => ParallelDo.fuse(p1.debug("parDoFuse with "+p2), p2)
   }))
 
   /**
@@ -96,10 +112,6 @@ trait Optimiser extends CompNodes with Rewriter {
 
   /**
    * optimise just one node which is the output of a graph.
-   *
-   * It is very important to duplicate the whole graph first to avoid execution information to become attached to the original
-   * nodes. Because if the main graph is augmented, the execution information we want to retrieve (like which nodes are using
-   * another node as an environment) may change.
    */
   private[scoobi]
   def optimise(node: CompNode): CompNode = {
@@ -111,12 +123,14 @@ trait Optimiser extends CompNodes with Rewriter {
 
   /** remove nodes from the tree based on a predicate */
   def truncate(node: CompNode)(condition: Term => Boolean) = {
+    def isParentMaterialise(n: CompNode) = parent(n).exists(isMaterialise)
     def truncateNode(n: Term): Term =
       n match {
-        case pd: ParallelDo   => pd.copy(ins = Seq(Return.unit))
-        case cb: Combine      => cb.copy(in = Return.unit)
-        case gbk: GroupByKey  => gbk.copy(in = Return.unit)
-        case other            => other
+        case p: ParallelDo if isParentMaterialise(p) => p.copy(ins = Seq(Return.unit))
+        case g: GroupByKey if isParentMaterialise(g) => g.copy(in = Return.unit)
+        case c: Combine    if isParentMaterialise(c) => c.copy(in = Return.unit)
+        case p: ProcessNode                          => p.bridgeStore.map(b => Load(b, p.wf)).getOrElse(p)
+        case other                                   => other
       }
 
     val truncateRule = rule { case n: Term =>
@@ -128,5 +142,12 @@ trait Optimiser extends CompNodes with Rewriter {
     result
   }
 
+  def truncateAlreadyExecutedNodes(node: CompNode)(implicit sc: ScoobiConfiguration) = {
+    allSinks(node).filter(_.checkpointExists).foreach(markSinkAsFilled)
+    truncate(node) {
+      case process: ProcessNode => nodeHasBeenFilled(process)
+      case other                => false
+    }
+  }
 }
 object Optimiser extends Optimiser

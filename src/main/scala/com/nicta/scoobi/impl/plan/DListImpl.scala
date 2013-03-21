@@ -36,11 +36,19 @@ class DListImpl[A](comp: ProcessNode) extends DList[A] {
 
   def getComp: C = comp
 
+  import scalaz.Store
+
+  def storeComp: Store[C, DList[A]] =
+    Store(new DListImpl[A](_), comp)
+
   def addSink(sink: Sink) =
-    setComp((c: C) => c.addSink(sink))
+    storeComp puts (_.addSink(sink))
+
+  def updateSinks(f: Seq[Sink] => Seq[Sink]) =
+    storeComp puts (_.updateSinks(f))
 
   def compressWith(codec: CompressionCodec, compressionType: CompressionType = CompressionType.BLOCK) =
-    setComp((c: C) => c.updateSinks(sinks => sinks.updateLast(_.compressWith(codec, compressionType))))
+    storeComp puts ((c: C) => c.updateSinks(sinks => sinks.updateLast(_.compressWith(codec, compressionType))))
 
   def setComp(f: C => C) = new DListImpl[A](f(comp))
 
@@ -57,8 +65,9 @@ class DListImpl[A](comp: ProcessNode) extends DList[A] {
     Grouped1(new DListImpl(GroupByKey(comp, wfk, gpk, wfv)))
 
   def combine[K, V]
-      (f: (V, V) => V)
-      (implicit wfk: WireFormat[K],
+      (f: Reduction[V])
+      (implicit ev:   A <:< (K,Iterable[V]),
+                wfk: WireFormat[K],
                 wfv: WireFormat[V]): DList[(K, V)] = new DListImpl(Combine(comp, (a1: Any, a2: Any) => f(a1.asInstanceOf[V], a2.asInstanceOf[V]), wfk, wfv))
 
   lazy val materialise: DObject[Iterable[A]] = new DObjectImpl(Materialise(comp, wireFormat[Iterable[A]]))

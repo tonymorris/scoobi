@@ -1,8 +1,24 @@
+/**
+ * Copyright 2011,2012 National ICT Australia Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.nicta.scoobi
 package application
 
-import core.WireFormat
+import core.{ScoobiConfiguration, WireFormat}
 import WireFormat._
+import impl.collection._
 
 /**
  * This trait provides way to create DLists from files
@@ -93,5 +109,16 @@ trait InputsOutputs {
   }
 
   def toAvroFile[B : AvroSchema](dl: core.DList[B], path: String, overwrite: Boolean = false) = AvroOutput.toAvroFile(dl, path, overwrite)
+
+  /** implicit definition to add a checkpoint method to a DList */
+  implicit def setCheckpoint[T](dl: core.DList[T]): SetCheckpoint[T] = new SetCheckpoint(dl)
+  case class SetCheckpoint[T](dl: core.DList[T]) {
+    def checkpoint(implicit sc: ScoobiConfiguration) = dl.updateSinks { sinks =>
+      sinks match {
+        case ss :+ sink => ss :+ sink.checkpoint
+        case ss         => ss
+      }
+    }
+  }
 }
 object InputsOutputs extends InputsOutputs

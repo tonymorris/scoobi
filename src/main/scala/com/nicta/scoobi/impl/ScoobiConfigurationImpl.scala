@@ -1,3 +1,18 @@
+/**
+ * Copyright 2011,2012 National ICT Australia Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.nicta.scoobi
 package impl
 
@@ -21,10 +36,13 @@ import Configurations._
 import FileSystems._
 import monitor.Loggable._
 import org.apache.hadoop.mapreduce.Job
+import scala.Some
+import tools.nsc.util.ScalaClassLoader
 
 case class ScoobiConfigurationImpl(private val hadoopConfiguration: Configuration = new Configuration,
                                    var userJars: Set[String] = Set(),
-                                   var userDirs: Set[String] = Set()) extends ScoobiConfiguration {
+                                   var userDirs: Set[String] = Set(),
+                                   var classLoader: Option[ScalaClassLoader] = None) extends ScoobiConfiguration {
 
   /**
    * This call is necessary to load the mapred-site.xml properties file containing the address of the default job tracker
@@ -99,6 +117,9 @@ case class ScoobiConfigurationImpl(private val hadoopConfiguration: Configuratio
     this
   }
 
+  /** @return user classes to add in the job jar, by class name (and corresponding bytecode) */
+  def userClasses: Map[String, Array[Byte]] = classLoader.map(Classes.loadedClasses).getOrElse(Map())
+
   /**
    * add a new jar url (as a String) to the current configuration
    */
@@ -129,6 +150,11 @@ case class ScoobiConfigurationImpl(private val hadoopConfiguration: Configuratio
   }
 
   /**
+   * attach a classloader which classes must be put on the job classpath
+   */
+  def addClassLoader(cl: ScalaClassLoader) = { classLoader = Some(cl); this }
+
+  /**
    * @return true if this configuration is used for a remote job execution
    */
   def isRemote = mode == Mode.Cluster
@@ -147,7 +173,7 @@ case class ScoobiConfigurationImpl(private val hadoopConfiguration: Configuratio
    * set a flag in order to know that this configuration is for a in-memory, local or remote execution,
    */
   def modeIs(mode: Mode.Value) = {
-    logger.debug("setting the scoobi execution mode as "+mode)
+    logger.debug("setting the scoobi execution mode: "+mode)
 
     set(SCOOBI_MODE, mode.toString)
     this
@@ -156,7 +182,7 @@ case class ScoobiConfigurationImpl(private val hadoopConfiguration: Configuratio
   def mode = Mode.withName(configuration.get(SCOOBI_MODE, Mode.Local.toString))
 
   /** @return true if the mscr jobs can be executed concurrently */
-  def concurrentJobs = hadoopConfiguration.getOrSetBoolean(CONCURRENT_JOBS, true)
+  def concurrentJobs = hadoopConfiguration.getOrSetBoolean(CONCURRENT_JOBS, false)
 
   /** set to true if the mscr jobs must be executed concurrently */
   def setConcurrentJobs(concurrent: Boolean) = { hadoopConfiguration.setBoolean(CONCURRENT_JOBS, concurrent); this }
@@ -215,13 +241,20 @@ case class ScoobiConfigurationImpl(private val hadoopConfiguration: Configuratio
   /**
    * force a configuration to be an in-memory one, currently doing everything as in the local mode
    */
-  def setAsInMemory: ScoobiConfiguration = setAsLocal
+  def setAsInMemory: ScoobiConfiguration = {
+    logger.debug("setting the ScoobiConfiguration as InMemory")
+    setDefaultForInMemoryAndLocal
+  }
+
   /**
    * force a configuration to be a local one
    */
   def setAsLocal: ScoobiConfiguration = {
-    logger.debug("setting the ScoobiConfiguration as local ")
+    logger.debug("setting the ScoobiConfiguration as Local")
+    setDefaultForInMemoryAndLocal
+  }
 
+  private def setDefaultForInMemoryAndLocal = {
     jobNameIs(getClass.getSimpleName)
     set(FS_DEFAULT_NAME_KEY, DEFAULT_FS)
     set("mapred.job.tracker", "local")
@@ -270,13 +303,16 @@ case class ScoobiConfigurationImpl(private val hadoopConfiguration: Configuratio
   def newEnv(wf: WireReaderWriter): Environment = Env(wf)(this)
 
   private lazy val persister = new Persister(this)
+
   def persist[A](ps: Seq[Persistent[_]]) = persister.persist(ps)
   def persist[A](list: DList[A])         = persister.persist(list)
   def persist[A](o: DObject[A]): A       = persister.persist(o)
+  private[scoobi] def reset = { persister.reset; this }
 
   def duplicate = {
     val c = new Configuration(configuration)
-    ScoobiConfigurationImpl(c).addUserDirs(userDirs.toSeq).addJars(userJars.toSeq)
+    val duplicated = ScoobiConfigurationImpl(c).addUserDirs(userDirs.toSeq).addJars(userJars.toSeq)
+    classLoader.map(duplicated.addClassLoader).getOrElse(duplicated)
   }
 }
 

@@ -1,3 +1,18 @@
+/**
+ * Copyright 2011,2012 National ICT Australia Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.nicta.scoobi
 package impl
 package plan
@@ -10,6 +25,7 @@ import core.WireFormat._
 import org.apache.hadoop.conf._
 import ParallelDo._
 import mapreducer.VectorEmitterWriter
+import com.nicta.scoobi.io.text.TextOutput._
 
 class CompNodesSpec extends UnitSpecification with AllExpectations with CompNodeData {
 
@@ -29,8 +45,17 @@ class CompNodesSpec extends UnitSpecification with AllExpectations with CompNode
   "the inputs of a parallelDo only contain the input node, not the environment" >> new nodes {
     val ld1 = load
     (pd(ld1) -> inputs) ==== Seq(ld1)
+  }; endp
+
+  "it is possible to collect all the sinks of a computation graph" >> new factory {
+    val (s1, s2, s3) = (textFileSink("s1"), textFileSink("s2"), textFileSink("s3"))
+    val l1 = load
+    val (pd1, pd2) = (pd(l1).addSink(s1), pd(l1).addSink(s2))
+    val (gbk1, gbk2) = (gbk(pd1), gbk(pd2))
+    val mt1 = mt(pd(gbk1, gbk2).addSink(s3))
+
+    allSinks(mt1).toSet === Set(s1, s2, s3, gbk1.bridgeStore.get ,gbk2.bridgeStore.get)
   }
-  endp
 
   "it is possible to get all the nodes which use a given node as an environment" >> new factory {
     val mt1 = mt(pd(load))

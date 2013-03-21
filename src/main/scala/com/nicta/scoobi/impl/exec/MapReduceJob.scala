@@ -34,11 +34,12 @@ import io._
 import mapreducer._
 import ScoobiConfigurationImpl._
 import ScoobiConfiguration._
-import mapreducer.BridgeStore
 import MapReduceJob.{configureJar,cleanConfiguration}
 import control.Exceptions._
 import monitor.Loggable
 import Loggable._
+import mapreducer.BridgeStore
+import Configurations._
 
 /**
  * A class that defines a single Hadoop MapReduce job and configures Hadoop based on the Mscr to execute
@@ -77,17 +78,18 @@ case class MapReduceJob(mscr: Mscr, layerId: Int)(implicit val configuration: Sc
 
   /** configure the Hadoop job */
   def configure = {
-    FileOutputFormat.setOutputPath(job, configuration.temporaryOutputDirectory(job))
-
     val jar = new JarBuilder
     job.getConfiguration.set("mapred.jar", configuration.temporaryJarFile.getAbsolutePath)
+
     configureKeysAndValues(jar)
     configureMappers(jar)
     configureCombiners(jar)
     configureReducers(jar)
     configureJar(jar)
-    cleanConfiguration(configuration)
+    cleanConfiguration(job)
     jar.close(configuration)
+
+    FileOutputFormat.setOutputPath(job, configuration.temporaryOutputDirectory(job))
 
     this
   }
@@ -145,7 +147,7 @@ case class MapReduceJob(mscr: Mscr, layerId: Int)(implicit val configuration: Sc
    *       a BridgeStore and add to JAR
    *     - add a named output for each output channel */
   private def configureReducers(jar: JarBuilder) {
-    mscr.sinks collect { case bs : BridgeStore[_]  => jar.addRuntimeClass(bs.rtClass) }
+    mscr.sinks collect { case bs : BridgeStore[_]  => jar.addRuntimeClass(bs.rtClass(ScoobiConfiguration(job.getConfiguration))) }
 
     mscr.outputChannels.foreach { out =>
       out.sinks.foreach(sink => ChannelOutputFormat.addOutputChannel(job, out.tag, sink))
@@ -225,12 +227,13 @@ object MapReduceJob {
     }
     configuration.userJars.foreach { jar.addJar(_) }
     configuration.userDirs.foreach { jar.addClassDirectory(_) }
+    configuration.userClasses.map { case (name, bytecode) => jar.addClassFromBytecode(name, bytecode) }
   }
 
-  def cleanConfiguration(implicit configuration: ScoobiConfiguration) {
-    configuration.distinctValues("mapred.cache.files",         separator = ",")
-    configuration.distinctValues("mapred.classpath",           separator = ":")
-    configuration.distinctValues("mapred.job.classpath.files", separator = ":")
+  def cleanConfiguration(job: Job)(implicit configuration: ScoobiConfiguration) {
+    job.getConfiguration.distinctValues("mapred.cache.files",         separator = ",")
+    job.getConfiguration.distinctValues("mapred.classpath",           separator = ":")
+    job.getConfiguration.distinctValues("mapred.job.classpath.files", separator = ":")
   }
 }
 

@@ -1,3 +1,18 @@
+/**
+ * Copyright 2011,2012 National ICT Australia Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.nicta.scoobi
 package acceptance
 
@@ -13,6 +28,7 @@ import impl.io.FileSystems
 
 import impl.control.Exceptions._
 import Scoobi._
+import TestFiles._
 
 class CompressionSpec extends NictaSimpleJobs with CompressedFiles with ResultFiles {
 
@@ -31,7 +47,7 @@ class CompressionSpec extends NictaSimpleJobs with CompressedFiles with ResultFi
   "gzipped files can be used as an output to a Scoobi job, just using toTextFile and specifying a codec" >> { implicit sc: SC =>
     val list = DList.fill(5)(1)
     val resultDir = TestFiles.createTempDir("result")
-    list.toTextFile(outputPath(resultDir)).compressWith(new GzipCodec).run
+    list.toTextFile(path(resultDir)).compressWith(new GzipCodec).run
 
     copyResults(resultDir) must containFiles(".gz")
   }
@@ -41,8 +57,8 @@ class CompressionSpec extends NictaSimpleJobs with CompressedFiles with ResultFi
 
     val (resultDir1, resultDir2) = (TestFiles.createTempDir("result1"), TestFiles.createTempDir("result2"))
 
-    list1.toTextFile(outputPath(resultDir1)).compress.run
-    list2.toTextFile(outputPath(resultDir2)).run
+    list1.toTextFile(path(resultDir1)).compress.run
+    list2.toTextFile(path(resultDir2)).run
 
     copyResults(resultDir1) must containFiles(".gz")
     copyResults(resultDir2) must notContainFiles(".gz")
@@ -56,21 +72,27 @@ class CompressionSpec extends NictaSimpleJobs with CompressedFiles with ResultFi
 }
 
 trait ResultFiles extends MustThrownMatchers {
-  def containResults: Matcher[File] = (resultDir: File) =>  {
-    resultDir.list must not (beEmpty)
+  /** matcher to determine if a directory, local or remote, contains result files */
+  def containResults(implicit sc: ScoobiConfiguration): Matcher[File] = (resultDir: File) =>  {
+    getFiles(resultDir) must not (beEmpty)
   }
-  def containFiles(extension: String): Matcher[File] = (resultDir: File) =>  {
-    resultDir.list must not (beEmpty)
-    resultDir.listFiles.toSeq.filter(_.getName.matches("ch.*"+extension)) must not (beEmpty)
+  def containFiles(extension: String)(implicit sc: ScoobiConfiguration): Matcher[File] = (resultDir: File) =>  {
+    val files = getFiles(resultDir)
+    files must not (beEmpty)
+    files.filter(_.getName.matches("ch.*"+extension)) must not (beEmpty)
   }
-  def notContainFiles(extension: String): Matcher[File] = (resultDir: File) =>  {
-    resultDir.list must not (beEmpty)
-    resultDir.listFiles.toSeq.filter(_.getName.matches("ch.*"+extension)) must beEmpty
+  def notContainFiles(extension: String)(implicit sc: ScoobiConfiguration): Matcher[File] = (resultDir: File) =>  {
+    val files = getFiles(resultDir)
+    files must not (beEmpty)
+    files.filter(_.getName.matches("ch.*"+extension)) must beEmpty
   }
-  def containFilesWithNoExtension: Matcher[File] = (resultDir: File) =>  {
-    resultDir.list must not (beEmpty)
-    resultDir.listFiles.toSeq.filter(_.getName.matches("ch[^\\.]*")) must not(beEmpty)
+  def containFilesWithNoExtension(implicit sc: ScoobiConfiguration): Matcher[File] = (resultDir: File) =>  {
+    val files = getFiles(resultDir)
+
+    files must not (beEmpty)
+    files.filter(_.getName.matches("ch[^\\.]*")) must not(beEmpty)
   }
+
   def copyResults(resultDir: File)(implicit sc: ScoobiConfiguration) = {
     if (sc.isRemote) {
       sc.fileSystem.listStatus(new Path(resultDir.getName)).foreach { f =>

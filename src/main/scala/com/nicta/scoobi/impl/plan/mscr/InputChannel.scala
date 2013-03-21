@@ -1,3 +1,18 @@
+/**
+ * Copyright 2011,2012 National ICT Australia Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.nicta.scoobi
 package impl
 package plan
@@ -95,7 +110,7 @@ trait MscrInputChannel extends InputChannel {
 
   /**
    * last mappers in the "tree" of mappers using the input channel source node
-   * A mapper not the "last" if its parent is a parallelDo that is included in the list of mappers
+   * A mapper is not the "last" if its parent is a parallelDo that is included in the list of mappers
    */
   lazy val lastMappers: Seq[ParallelDo] =
     if (mappers.size <= 1) mappers
@@ -118,6 +133,9 @@ trait MscrInputChannel extends InputChannel {
     scoobiConfiguration = scoobiConfiguration(configuration)
     tks = Map(tags.map(t => { val key = context.context.getMapOutputKeyClass.newInstance.asInstanceOf[TaggedKey]; key.setTag(t); (t, key) }):_*)
     tvs = Map(tags.map(t => { val value = context.context.getMapOutputValueClass.newInstance.asInstanceOf[TaggedValue]; value.setTag(t); (t, value) }):_*)
+    tks.map { case (t, k) => k.configuration = configuration }
+    tvs.map { case (t, v) => v.configuration = configuration }
+
     emitters = Map(tags.map(t => (t, createEmitter(t, context))):_*)
     environments = Map(mappers.map(mapper => (mapper, mapper.environment(scoobiConfiguration))):_*)
 
@@ -140,8 +158,8 @@ trait MscrInputChannel extends InputChannel {
     def computeMappers(node: CompNode, emitter: EmitterWriter): Seq[Any] = {
       val result = node match {
         case n if n == sourceNode => Seq(source.fromKeyValueConverter.asValue(context, key, value))
-        case mapper: ParallelDo if !isReducer(mapper) =>
-          val previousNodes = mapper.ins.filter(n => sourceNode == n || transitiveUses(sourceNode).filter(isParallelDo).contains(n))
+        case mapper: ParallelDo if mappers.contains(mapper) =>
+          val previousNodes = mapper.ins.filter(n => sourceNode == n || mappers.contains(n))
           val mappedValues = previousNodes.foldLeft(Seq[Any]()) { (res, cur) => res ++ computeMappers(cur, emitter) }
 
           if (mappers.size > 1 && isInsideMapper(mapper)) vectorEmitter.map(environments(mapper), mappedValues, mapper)
@@ -151,17 +169,21 @@ trait MscrInputChannel extends InputChannel {
       result
     }
 
-    lastMappers.foreach(mapper => computeMappers(mapper, emitters(outputTag(mapper))))
+    lastMappers.foreach { mapper =>
+      outputTags(mapper).map(emitters).foreach(e => computeMappers(mapper, e))
+    }
 
     if (lastMappers.isEmpty)
       tags.map(t => emitters(t).write(source.fromKeyValueConverter.asValue(context, key, value)))
   }
 
   /** @return the output tag for a given "last" mapper */
-  protected def outputTag(mapper: ParallelDo): Int
+  protected def outputTags(mapper: ParallelDo): Seq[Int]
 
   def cleanup(context: InputOutputContext) {
-    lastMappers.foreach(m => m.cleanup(environments(m), emitters(outputTag(m)))).debug("finished cleaning up the mapper")
+    lastMappers.foreach { m =>
+      outputTags(m).foreach(t => m.cleanup(environments(m), emitters(t)))
+    }.debug("finished cleaning up the mapper")
   }
 
   /**
@@ -203,7 +225,7 @@ class GbkInputChannel(val sourceNode: CompNode, groupByKeys: Seq[GroupByKey]) ex
       }
     }
   }
-  protected def outputTag(mapper: ParallelDo): Int = mapper.parent[CompNode].id
+  protected def outputTags(mapper: ParallelDo): Seq[Int] = uses(mapper).collect(isAGroupByKey).map(_.id).toSeq
 }
 
 /**
@@ -229,7 +251,7 @@ class FloatingInputChannel(val sourceNode: CompNode, val mappers: Seq[ParallelDo
       context.write(key, value)
     }
   }
-  protected def outputTag(mapper: ParallelDo): Int = mapper.id
+  protected def outputTags(mapper: ParallelDo): Seq[Int] = Seq(mapper.id)
 }
 
 

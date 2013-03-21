@@ -1,3 +1,18 @@
+/**
+ * Copyright 2011,2012 National ICT Australia Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.nicta.scoobi
 package impl
 package io
@@ -72,14 +87,24 @@ trait FileSystems {
   /**
    * create a directory if it doesn't exist already
    */
-  def mkdir(dest: String)(implicit configuration: ScoobiConfiguration) {
+  def mkdir(dest: Path)(implicit sc: ScoobiConfiguration) {
     if (!exists(dest))
-      fileSystem.mkdirs(new Path(dest))
+      FileSystem.get(dest.toUri, sc.configuration).mkdirs(dest)
   }
 
+  /**
+   * create a directory if it doesn't exist already
+   */
+  def mkdir(dest: String)(implicit sc: ScoobiConfiguration) {
+    mkdir(new Path(dest))
+  }
+
+  def exists(path: Path)(implicit sc: ScoobiConfiguration): Boolean =
+    FileSystem.get(path.toUri, sc.configuration).exists(path)
+
   /** @return true if a Path exists with this name on the file system */
-  def exists(path: String)(implicit configuration: ScoobiConfiguration) =
-    fileSystem.exists(new Path(path))
+  def exists(path: String)(implicit configuration: ScoobiConfiguration): Boolean =
+    exists(new Path(path))
 
   /**
    * delete all the files in a given directory on the file system

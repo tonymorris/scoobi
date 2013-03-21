@@ -1,3 +1,18 @@
+/**
+ * Copyright 2011,2012 National ICT Australia Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.nicta.scoobi
 package impl
 package plan
@@ -27,12 +42,30 @@ trait CompNodes extends GraphNodes with CollectFunctions {
     uses(node).collect { case pd: ParallelDo if pd.env == node => pd }.toSeq
   }
 
+  /** collect all the sinks in the computation graph */
+  lazy val allSinks: CompNode => Seq[Sink] = attr("all sinks") {
+    case process: ProcessNode => process.sinks ++ children(process).flatMap(allSinks)
+    case other                => children(other).flatMap(allSinks)
+  }
+
   /** mark a sink as filled so it doesn't have to be recomputed */
-  protected def markSinkAsFilled = (s: Sink) => { filledSink(s.stringId); s }
+  protected def markSinkAsFilled = (s: Sink) => {
+    s.checkpointName.map(filledSink).getOrElse(filledSink(s.stringId))
+    s
+  }
   /** this attribute stores the fact that a Sink has received data */
   protected lazy val filledSink: CachedAttribute[String, String] = attr("filled sink")(identity)
+
+  /** @return true if a process node has been filled */
+  protected def nodeHasBeenFilled(p: CompNode) = p match {
+    case pn: ProcessNode => pn.bridgeStore.exists(hasBeenFilled)
+    case other           => false
+  }
   /** @return true if a given Sink has already received data */
-  protected lazy val hasBeenFilled = (s: Sink) => filledSink.hasBeenComputedAt(s.stringId)
+  protected lazy val hasBeenFilled = (s: Sink) => {
+    filledSink.hasBeenComputedAt(s.stringId) ||
+    s.checkpointName.map(filledSink.hasBeenComputedAt).getOrElse(false)
+  }
 }
 object CompNodes extends CompNodes
 
@@ -50,6 +83,8 @@ trait CollectFunctions {
   lazy val isACombine: PartialFunction[Any, Combine] = { case c: Combine => c }
   /** return true if a CompNode is a ParallelDo */
   lazy val isAParallelDo: PartialFunction[Any, ParallelDo] = { case p: ParallelDo => p }
+  /** return true if a CompNode is a ProcessNode */
+  lazy val isAProcessNode: PartialFunction[Any, ProcessNode] = { case p: ProcessNode => p }
   /** return true if a CompNode is a GroupByKey */
   lazy val isGroupByKey: CompNode => Boolean = { case g: GroupByKey => true; case other => false }
   /** return true if a CompNode is a GroupByKey */

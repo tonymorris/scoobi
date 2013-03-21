@@ -1,3 +1,18 @@
+/**
+ * Copyright 2011,2012 National ICT Australia Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.nicta.scoobi
 package impl
 package plan
@@ -12,13 +27,14 @@ import core._
 
 trait MscrsDefinition extends Layering {
 
-  def selectNode(n: CompNode) = isGroupByKey(n) || (n -> isFloating)
+  def selectNode(n: CompNode) = (isGroupByKey(n) || (n -> isFloating)) && !nodeHasBeenFilled(n)
 
   /** a floating node is a parallelDo node that's not a descendent of a gbk node and is not a reducer */
   lazy val isFloating: CompNode => Boolean = attr("isFloating") {
     case pd: ParallelDo => (transitiveUses(pd).forall(!isGroupByKey) || uses(pd).exists(isMaterialise) || uses(pd).exists(isRoot) || !parent(pd).isDefined) &&
                             !isReducer(pd) &&
-                           (!inputs(pd).exists(isFloating)) ||
+                            !inputs(pd).exists(isFloating) ||
+                             inputs(pd).collect(isAParallelDo).exists(_.sinks.exists(_.isCheckpoint))  ||
                             descendents(pd.env).exists(isGroupByKey) ||
                             hasMaterialisedEnv(pd)
     case _              => false
@@ -40,9 +56,15 @@ trait MscrsDefinition extends Layering {
 
   private [scoobi]
   def floatingMappers(sourceNode: CompNode) = {
-    val floatings =
-      if (isFloating(sourceNode)) Seq(sourceNode)
-      else                        uses(sourceNode).filter(isFloating)
+    val floatings = {
+      sourceNode match {
+        case pd: ProcessNode if isFloating(pd) && !nodeHasBeenFilled(pd) => Seq(pd)
+        case _                                                           => {
+          val floatingUses = uses(sourceNode).filter(use => isFloating(use) && !nodeHasBeenFilled(use))
+          floatingUses.filterNot(p => descendents(p).exists(floatingUses.contains))
+        }
+      }
+    }
 
     (floatings ++ floatings.flatMap(mappersUses).filterNot(isFloating)).collect(isAParallelDo).toSeq
   }
@@ -158,10 +180,8 @@ trait MscrsDefinition extends Layering {
   }
 
   lazy val isReducer: ParallelDo => Boolean = attr("isReducer") {
-    case pd @ ParallelDo1(Combine1((gbk: GroupByKey)) +: rest)    => rest.isEmpty && isUsedAtMostOnce(pd) && !hasMaterialisedEnv(pd)
-    case pd @ ParallelDo1((gbk: GroupByKey) +: rest)              => rest.isEmpty && isUsedAtMostOnce(pd) && !hasMaterialisedEnv(pd)
-    case pd if pd.bridgeStore.map(hasBeenFilled).getOrElse(false) => true
-    case _                                                        => false
+    case pd @ ParallelDo1(Combine1((gbk: GroupByKey)) +: rest) => rest.isEmpty && isUsedAtMostOnce(pd) && !hasMaterialisedEnv(pd)
+    case pd @ ParallelDo1((gbk: GroupByKey) +: rest)           => rest.isEmpty && isUsedAtMostOnce(pd) && !hasMaterialisedEnv(pd)
+    case _                                                     => false
   }
-
 }

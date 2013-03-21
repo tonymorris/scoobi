@@ -35,7 +35,7 @@ trait DList[A] extends DataSinks with Persistent[Seq[A]] {
   def getComp: C
 
   private[scoobi]
-  def setComp(f: C => C): DList[A]
+  def storeComp: scalaz.Store[C, DList[A]]
 
   implicit def wf: WireFormat[A] = getComp.wf.asInstanceOf[WireFormat[A]]
 
@@ -69,11 +69,6 @@ trait DList[A] extends DataSinks with Persistent[Seq[A]] {
    */
   def materialise: DObject[Iterable[A]]
 
-  /**
-   * Turn a distributed list into a normal, non-distributed non-empty collection that can be accessed
-   * by the client
-   */
-
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Derived functionality (return DLists).
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -98,7 +93,7 @@ trait DList[A] extends DataSinks with Persistent[Seq[A]] {
       emitter.emit(_)
     })
 
-  @deprecated(message = "use mapFlatten instead because a 'real' flatMap operation would be A => DList[B]", since = "0.7.0")
+  @deprecated(message = "use mapFlatten instead because DList is not a subclass of Iterator and a well-behaved flatMap operation accepts an argument: A => DList[B]", since = "0.7.0")
   def flatMap[B : WireFormat](f: A => Iterable[B]): DList[B] = mapFlatten(f)
 
   /**
@@ -114,6 +109,9 @@ trait DList[A] extends DataSinks with Persistent[Seq[A]] {
     basicParallelDo((input: A, emitter: Emitter[A]) => if (p(input)) {
       emitter.emit(input)
     })
+
+  /** the withFilter method */
+  def withFilter(p: A => Boolean): DList[A] = filter(p)
 
   /** Keep elements from the distributed list that do not pass a specified predicate function */
   def filterNot(p: A => Boolean): DList[A] = filter(p andThen (!_))
@@ -172,13 +170,13 @@ trait DList[A] extends DataSinks with Persistent[Seq[A]] {
 
   /** Group the values of a distributed list according to some discriminator function. */
   def groupBy[K : WireFormat : Grouping](f: A => K): Grouped1[K, A] =
-    map(x => (f(x), x)).groupByKey
+    by(f).groupByKey
 
   /** Group the value of a distributed list according to some discriminator function
     * and some grouping function. */
   def groupWith[K : WireFormat](f: A => K)(gpk: Grouping[K]): Grouped1[K, A] = {
     implicit def grouping = gpk
-    map(x => (f(x), x)).groupByKey
+    by(f).groupByKey
   }
 
   /**Create a new distributed list that is keyed based on a specified function. */
@@ -205,9 +203,17 @@ trait DList[A] extends DataSinks with Persistent[Seq[A]] {
   // Derived functionality (reduction operations)
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  /**Reduce the elements of this distributed list using the specified associative binary operator. The
-   * order in which the elements are reduced is unspecified and may be non-deterministic. */
-  def reduce(op: (A, A) => A): DObject[A] = {
+  /**
+   * Reduce the elements of this distributed list using the specified associative binary operator. The
+   * order in which the elements are reduced is unspecified and may be non-deterministic
+   */
+  def reduce(op: Reduction[A]): DObject[A] = reduceOption(op).map(_.getOrElse(sys.error("the reduce operation is called on an empty list")))
+
+  /**
+   * Reduce the elements of this distributed list using the specified associative binary operator and a default value if
+   * the list is empty. The order in which the elements are reduced is unspecified and may be non-deterministic
+   */
+  def reduceOption(op: Reduction[A]): DObject[Option[A]] = {
     /* First, perform in-mapper combining. */
     val imc: DList[A] = parallelDo(new DoFn[A, A] {
       var acc: A = _
@@ -227,17 +233,19 @@ trait DList[A] extends DataSinks with Persistent[Seq[A]] {
       }
     })
 
-    // todo return DList1 from Grouped1#combine
-    val h: DList[(Int, A)] = imc.groupBy(_ => 0).combine(op)
-    val x = h.map(_._2).materialise
-    x map (_.headOption getOrElse (sys.error("the reduce operation is called on an empty list")))
+    /* Group all elements together (so they go to the same reducer task) and then
+     * combine them. */
+    val x: DObject[Iterable[A]] = imc.groupBy(_ => 0).combine(op).map(_._2).materialise
+    x map (_.headOption)
   }
 
   /**Multiply up the elements of this distribute list. */
-  def product(implicit num: Numeric[A]): DObject[A] = reduce(num.times)
+  def product(implicit num: Numeric[A]): DObject[A] =
+    reduceOption(Reduction(num.times)) map (_ getOrElse num.one)
 
   /**Sum up the elements of this distribute list. */
-  def sum(implicit num: Numeric[A]): DObject[A] = reduce(num.plus)
+  def sum(implicit num: Numeric[A]): DObject[A] =
+    reduceOption(Reduction(num.plus)) map (_ getOrElse num.zero)
 
   /**The length of the distributed list. */
   def length: DObject[Int] = map(_ => 1).sum
@@ -249,27 +257,23 @@ trait DList[A] extends DataSinks with Persistent[Seq[A]] {
   def count(p: A => Boolean): DObject[Int] = filter(p).length
 
   /**Find the largest element in the distributed list. */
-  def max(implicit cmp: Ordering[A]): DObject[A] = reduce((x, y) => if (cmp.gteq(x, y)) x else y)
+  def max(implicit cmp: Ordering[A]): DObject[A] =
+    reduce(Reduction.maximumS)
 
   /**Find the largest element in the distributed list. */
   def maxBy[B](f: A => B)(cmp: Ordering[B]): DObject[A] =
-    reduce((x, y) => if (cmp.gteq(f(x), f(y))) x else y)
+    reduce(Reduction.maximumS(cmp on f))
 
   /**Find the smallest element in the distributed list. */
-  def min(implicit cmp: Ordering[A]): DObject[A] = reduce((x, y) => if (cmp.lteq(x, y)) x else y)
+  def min(implicit cmp: Ordering[A]): DObject[A] =
+    reduce(Reduction.minimumS)
 
   /**Find the smallest element in the distributed list. */
   def minBy[B](f: A => B)(cmp: Ordering[B]): DObject[A] =
-    reduce((x, y) => if (cmp.lteq(f(x), f(y))) x else y)
+    reduce(Reduction.minimumS(cmp on f))
 
-  private def basicParallelDo[B : WireFormat](proc: (A, Emitter[B]) => Unit): DList[B] = {
-    val dofn = new BasicDoFn[A, B] {
-      def process(input: A, emitter: Emitter[B]) {
-        proc(input, emitter)
-      }
-    }
-    parallelDo(dofn)
-  }
+  private def basicParallelDo[B : WireFormat](proc: (A, Emitter[B]) => Unit): DList[B] =
+    parallelDo(BasicDoFn(proc))
 
 }
 
