@@ -41,10 +41,10 @@ trait Library {
    * Note this is an expensive conversion (it adds an extra map-reduce job), try save the result to reuse if applicable
    */
   implicit def dlistToRowWiseWithMapReduceJob[E : WireFormat : Ordering, T : WireFormat](m: DMatrix[E, T]): DRowWiseMatrix[E, T] =
-    DRowWiseMatrix(m.map { case ((r, c), v) => (r, (c, v)) }.groupByKey)
+    error("") // DRowWiseMatrix(m.map { case ((r, c), v) => (r, (c, v)) }.groupByKey)
 
   implicit def dlistToRowWise[Elem: WireFormat: Ordering, T: WireFormat](m: DList[(Elem, Iterable1[(Elem, T)])]): DRowWiseMatrix[Elem, T] =
-    DRowWiseMatrix(Grouped1(m.map { case (k, v) => Association1(k, v) }))
+    error("") // DRowWiseMatrix(Grouped1(m.map { case (k, v) => Association1(k, v) }))
 
   implicit def rowWiseToDList[Elem: WireFormat: Ordering, T: WireFormat](m: DRowWiseMatrix[Elem, T]) = m.data
 
@@ -59,10 +59,10 @@ trait Library {
    * Note this is an expensive conversion (it adds an extra map-reduce job), try save the result to reuse if applicable.
    */
   implicit def dlistToColWiseWithMapReduceJob[Elem: WireFormat: Ordering, T: WireFormat](m: DMatrix[Elem, T]): DColWiseMatrix[Elem, T] =
-    DColWiseMatrix(m.map { case ((r, c), v) => (c, (r, v)) }.groupByKey)
+    error("") // DColWiseMatrix(m.map { case ((r, c), v) => (c, (r, v)) }.groupByKey)
 
   implicit def dlistToColWise[Elem : WireFormat: Ordering, T : WireFormat](m: DList[(Elem, Iterable1[(Elem, T)])]): DColWiseMatrix[Elem, T] =
-    DColWiseMatrix(Grouped1(m.map { case (k, v) => Association1(k, v) }))
+    error("") // DColWiseMatrix(Grouped1(m.map { case (k, v) => Association1(k, v) }))
 
   implicit def colWiseToDList[Elem : WireFormat: Ordering, T : WireFormat](m: DColWiseMatrix[Elem, T]) = m.data
 

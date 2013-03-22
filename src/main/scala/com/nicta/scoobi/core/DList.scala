@@ -235,7 +235,7 @@ trait DList[A] extends DataSinks with Persistent[Seq[A]] {
 
     /* Group all elements together (so they go to the same reducer task) and then
      * combine them. */
-    val x: DObject[Iterable[A]] = imc.groupBy(_ => 0).combine(op).map(_._2).materialise
+    val x: DObject[Iterable[A]] = error("") // imc.groupBy(_ => 0).combine(op).map(_._2).materialise
     x map (_.headOption)
   }
 

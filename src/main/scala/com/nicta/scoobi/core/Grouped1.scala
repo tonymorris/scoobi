@@ -21,7 +21,7 @@ sealed trait Grouped1[K, V] {
   /** make a Grouped1 runnable, executing the computation and returning the values */
   def run(implicit configuration: core.ScoobiConfiguration): Seq[Association1[K, V]] = {
     import com.nicta.scoobi.Scoobi._
-    list.run
+    error("") // Llist.run
   }
 
   /**
