@@ -73,7 +73,7 @@ sealed trait Grouped[K, V] {
    * The values of the underlying distributed list flattened.
    */
   def valuesF(implicit fv: WireFormat[V]): DList[V] =
-    list mapFlatten (_.values.toIterable)
+    list mapFlatten (_.values)
 
   /**
    * Map two functions on the keys and values (binary map) of the distributed list.
