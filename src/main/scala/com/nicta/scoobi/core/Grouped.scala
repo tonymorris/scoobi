@@ -19,18 +19,18 @@ package core
 /**
  * A distributed list of associations.
  *
- * @see [[com.nicta.scoobi.core.Association1]]
+ * @see [[com.nicta.scoobi.core.Association]]
  */
 sealed trait Grouped[K, V] {
   /**
    * The underlying distributed list.
    */
-  val list: DList[Association1[K, V]]
+  val list: DList[Association[K, V]]
 
   /**
    * Run a function on the values of the distributed list to produce new values.
    */
-  def mapValues[W](f: Iterable1[V] => Iterable1[W])(implicit fk: WireFormat[K], fw: WireFormat[W]): Grouped[K, W] =
+  def mapValues[W](f: Iterable[V] => Iterable[W])(implicit fk: WireFormat[K], fw: WireFormat[W]): Grouped[K, W] =
     Grouped(list map (_ mapValues f))
 
   /**
@@ -66,7 +66,7 @@ sealed trait Grouped[K, V] {
   /**
    * The values of the underlying distributed list grouped by their key.
    */
-  def values(implicit fv: WireFormat[V]): DList[Iterable1[V]] =
+  def values(implicit fv: WireFormat[V]): DList[Iterable[V]] =
     list map (_.values)
 
   /**
@@ -87,7 +87,7 @@ object Grouped {
   /**
    * Construct a `Grouped` with the given distributed list.
    */
-  def apply[K, V](x: DList[Association1[K, V]]): Grouped[K, V] =
+  def apply[K, V](x: DList[Association[K, V]]): Grouped[K, V] =
     new Grouped[K, V] {
       val list = x
     }
