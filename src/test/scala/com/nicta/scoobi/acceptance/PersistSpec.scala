@@ -24,7 +24,7 @@ import CompNodeData._
 import TestFiles._
 import io.text.TextSource
 import org.apache.hadoop.mapreduce.RecordReader
-import core.{InputConverter, InputOutputContext}
+import core.{InputConverter, InputOutputContext, DoFn}
 import impl.plan.DListImpl
 import org.apache.hadoop.io.{Text, LongWritable}
 import scala.io.Source
@@ -82,7 +82,7 @@ class PersistSpec extends NictaSimpleJobs with ResultFiles with Tags { sequentia
         emitter.emit(input + 2)
       }
 
-      val l3 = l1.parallelDo(doFn)
+      val l3 = l1.parallelDo(DoFn(doFn))
 
       "the list l1 has been computed only once" ==> {
         persist(l2, l3) must not(throwAn[Exception])

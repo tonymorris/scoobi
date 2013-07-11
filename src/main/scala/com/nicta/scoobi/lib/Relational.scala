@@ -254,7 +254,7 @@ object Relational {
       }
     }
 
-    (left ++ right).groupByKeyWith(grouping).parallelDo(fn)
+    (left ++ right).groupByKeyWith(grouping).parallelDo(DoFn(fn))
   }
 
 
