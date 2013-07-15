@@ -18,7 +18,7 @@ package acceptance
 
 import testing.mutable.script.NictaSimpleJobs
 import Scoobi._
-import core.Counters
+import core.{Counters, DoFn}
 import impl.plan.comp.CompNodeData._
 
 class CountersSpec extends NictaSimpleJobs { s2"""
@@ -33,34 +33,34 @@ class CountersSpec extends NictaSimpleJobs { s2"""
   "counters" - new group {
     eg := {
       implicit sc: SC =>
-      val list = DList(1, 2, 3).map((i: Int) => i + 1).parallelDo((input: Int, counters: Counters) => {
+      val list = DList(1, 2, 3).map((i: Int) => i + 1).parallelDo(DoFn.fromFunctionWithScoobiJobContext((input: Int, counters: Counters) => {
         counters.incrementCounter("group1", "counter1", 1)
         input + 1
-      })
+      }))
       list.run.normalise === "Vector(3, 4, 5)"
       sc.counters.getGroup("group1").findCounter("counter1").getValue must be_==(3).when(sc.isLocal)
     }
 
     eg := { implicit sc: SC =>
-      val list = DList(1, 2, 3).map((i: Int) => (i, i)).groupByKey.parallelDo((input: (Int, Iterable[Int]), counters: Counters) => {
+      val list = DList(1, 2, 3).map((i: Int) => (i, i)).groupByKey.parallelDo(DoFn.fromFunctionWithScoobiJobContext((input: (Int, Iterable[Int]), counters: Counters) => {
         counters.incrementCounter("group1", "counter1", 1)
         input
-      })
+      }))
       list.run
       sc.counters.getGroup("group1").findCounter("counter1").getValue must be_==(3).when(sc.isLocal)
     }
 
     eg := { implicit sc: SC =>
       // increment counters in first map, then in the reducer after the second gbk
-      val list = DList(1, 2, 3).parallelDo((input: Int, counters: Counters) => {
+      val list = DList(1, 2, 3).parallelDo(DoFn.fromFunctionWithScoobiJobContext((input: Int, counters: Counters) => {
         counters.incrementCounter("group1", "counter1", 1)
         input + 1
-      }).map((i: Int) => (i, i)).
+      })).map((i: Int) => (i, i)).
         groupByKey.map { case (k, v) => (k, k) }.
-        groupByKey.parallelDo((input: (Int, Iterable[Int]), counters: Counters) => {
+        groupByKey.parallelDo(DoFn.fromFunctionWithScoobiJobContext((input: (Int, Iterable[Int]), counters: Counters) => {
         counters.incrementCounter("group1", "counter1", 1)
         input
-      })
+      }))
 
       list.run
       sc.counters.getGroup("group1").findCounter("counter1").getValue must be_==(6).when(sc.isLocal)

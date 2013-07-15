@@ -79,8 +79,8 @@ trait DList[A] extends DataSinks with Persistent[Seq[A]] {
   def parallelDo[B : WireFormat](dofn: DoFn[A, B]): DList[B]
   // def parallelDo[B : WireFormat](fn: (A, Emitter[B]) => Unit): DList[B] = parallelDo(DoFn(fn))
   // def parallelDo[B](fn: (A, Counters) => B)(implicit wf: WireFormat[B], p: ImplicitParameter): DList[B] = parallelDo(DoFn.fromFunctionWithCounters(fn))
-  def parallelDo[B](fn: (A, Heartbeat) => B)(implicit wf: WireFormat[B], p: ImplicitParameter1): DList[B] = parallelDo(DoFn.fromFunctionWithHeartbeat(fn))
-  def parallelDo[B](fn: (A, ScoobiJobContext) => B)(implicit wf: WireFormat[B], p: ImplicitParameter2): DList[B] = parallelDo(DoFn.fromFunctionWithScoobiJobContext(fn))
+  // def parallelDo[B](fn: (A, Heartbeat) => B)(implicit wf: WireFormat[B], p: ImplicitParameter1): DList[B] = parallelDo(DoFn.fromFunctionWithHeartbeat(fn))
+  // def parallelDo[B](fn: (A, ScoobiJobContext) => B)(implicit wf: WireFormat[B], p: ImplicitParameter2): DList[B] = parallelDo(DoFn.fromFunctionWithScoobiJobContext(fn))
 
   /**
    * Group the values of a distributed list with key-value elements by key. And explicitly

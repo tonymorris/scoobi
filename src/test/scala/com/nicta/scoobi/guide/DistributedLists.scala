@@ -17,6 +17,7 @@ package com.nicta.scoobi
 package guide
 
 import Scoobi._
+import core.DoFn
 
 class DistributedLists extends ScoobiPage { def is = "Distributed Lists".title ^
   s2"""
@@ -141,10 +142,10 @@ Whilst the `parallelDo` and `DoFn` APIs provide greater flexibility, it is best 
 
 Similarly, you can use `parallelDo` as a lower-level API to access Hadoop's counters and "progress" functionality ${snippet{
 
-val list = DList(1, 2, 3).parallelDo((input: Int, counters: Counters) => {
+val list = DList(1, 2, 3).parallelDo(DoFn.fromFunctionWithScoobiJobContext((input: Int, counters: Counters) => {
   counters.incrementCounter("group1", "counter1", 1)
   input + 1
-})
+}))
 
 }}
 
@@ -159,10 +160,10 @@ sc.counters.getGroup("group1").findCounter("counter1").getValue
 }}
 
 You can also use the same API to invoke the "Heartbeat" functionality, when you have long-running jobs to indicate that the job is still running ${snippet{
-val list = DList(1, 2, 3).parallelDo((input: Int, beat: Heartbeat) => {
+val list = DList(1, 2, 3).parallelDo(DoFn.fromFunctionWithScoobiJobContext((input: Int, beat: Heartbeat) => {
   beat.tick
   input + 1
-})
+}))
 }}
 
 ### Grouping
