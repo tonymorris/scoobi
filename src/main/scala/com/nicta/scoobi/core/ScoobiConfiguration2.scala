@@ -2,15 +2,14 @@ package com.nicta.scoobi
 package core
 
 trait ScoobiConfiguration2 {
-  val value: Map[String, String]
+  val concurrentJobs: Option[Boolean]
+  val uploadedLibJars: Option[Boolean]
 
 }
 
 object ScoobiConfiguration2 {
-  private[core] def apply(m: Map[String, String]): ScoobiConfiguration2 =
-    new ScoobiConfiguration2 {
-      val value = m
-    }
+  private[core] def apply(): ScoobiConfiguration2 =
+    ???
 }
 
 sealed trait ScoobiConfiguration2Reader[A] {
