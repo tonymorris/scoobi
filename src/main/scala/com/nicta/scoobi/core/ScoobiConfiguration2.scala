@@ -2,8 +2,13 @@ package com.nicta.scoobi
 package core
 
 trait ScoobiConfiguration2 {
+  val mode: Option[Mode]
   val concurrentJobs: Option[Boolean]
   val uploadedLibJars: Option[Boolean]
+  val maxReducers: Option[Int]
+  val minReducers: Option[Int]
+  val bytesPerReducer: Option[Long]
+  val jobName: Option[String]
 
 }
 
